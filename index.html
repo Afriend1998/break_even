@@ -1,0 +1,2664 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BREAK EVEN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #06080e;
+      --surface: #0c1018;
+      --border: #1a2235;
+      --accent: #3d7eff;
+      --text: #dde8ff;
+      --muted: #3a4d6a;
+      --muted2: #1e2d45;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    .grid-bg {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(rgba(61,127,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(61,127,255,0.035) 1px, transparent 1px);
+      background-size: 52px 52px;
+    }
+    .grid-bg::after {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 50% at 50% 50%, transparent 40%, var(--bg) 100%);
+    }
+
+    /* ── SCREENS ── */
+    .screen {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 1; padding: 40px 24px;
+      transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .screen.hidden  { opacity: 0; pointer-events: none; transform: translateY(24px); }
+    .screen.out     { opacity: 0; transform: translateY(-24px); }
+
+    /* ── INTRO ── */
+    .intro-eyebrow {
+      font-size: 10px; letter-spacing: 0.22em; color: var(--accent);
+      text-transform: uppercase; font-weight: 500; margin-bottom: 40px;
+      opacity: 0; animation: fadeUp 0.6s ease 0.1s both;
+    }
+    .title-block { display: flex; gap: clamp(12px,3vw,32px); align-items: baseline; margin-bottom: 28px; }
+    .word-wrap { overflow: hidden; display: block; }
+    .word-inner {
+      display: block;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: clamp(76px, 13vw, 172px);
+      font-weight: 700; letter-spacing: -0.03em; line-height: 0.88;
+      animation: slideUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    .word-break { color: var(--text); animation-delay: 0.05s; }
+    .word-even  { color: var(--accent); animation-delay: 0.22s; }
+    .intro-line {
+      width: clamp(120px,20vw,240px); height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 0 auto 28px; opacity: 0; animation: fadeIn 0.8s ease 0.7s both;
+    }
+    .intro-sub {
+      font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 64px;
+      opacity: 0; animation: fadeIn 0.8s ease 0.85s both;
+    }
+    .btn-continue {
+      opacity: 0; animation: fadeIn 0.6s ease 1.2s both;
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 14px 36px; background: var(--accent); color: #fff;
+      font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      border: none; border-radius: 3px; cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-continue:hover { background: #5b93ff; transform: translateY(-2px); }
+    .btn-continue svg { transition: transform 0.2s; }
+    .btn-continue:hover svg { transform: translateX(4px); }
+
+    /* ── DASHBOARD ── */
+    .dash-label {
+      font-size: 10px; letter-spacing: 0.22em; color: var(--muted);
+      text-transform: uppercase; margin-bottom: 40px;
+    }
+    .portfolio-card {
+      width: min(420px, 100%); background: var(--surface);
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 36px 40px 32px; cursor: pointer;
+      position: relative; overflow: hidden;
+      transition: border-color 0.25s, transform 0.25s;
+    }
+    .portfolio-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--accent); transform: scaleX(0); transform-origin: left;
+      transition: transform 0.35s cubic-bezier(0.16,1,0.3,1);
+    }
+    .portfolio-card:hover { border-color: rgba(61,127,255,0.4); transform: translateY(-3px); }
+    .portfolio-card:hover::before { transform: scaleX(1); }
+    .card-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--accent); font-weight: 500; margin-bottom: 20px;
+    }
+    .card-badge-dot {
+      width: 6px; height: 6px; background: var(--accent);
+      border-radius: 50%; animation: pulse 2s ease infinite;
+    }
+    .card-title {
+      font-family: 'Space Grotesk', sans-serif; font-size: 28px;
+      font-weight: 700; letter-spacing: -0.02em; color: var(--text); margin-bottom: 10px;
+    }
+    .card-brokers { font-size: 12px; color: var(--muted); letter-spacing: 0.05em; margin-bottom: 36px; }
+    .card-enter {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--accent); font-weight: 500;
+    }
+    .card-enter svg { transition: transform 0.2s; }
+    .portfolio-card:hover .card-enter svg { transform: translateX(5px); }
+
+    /* ── DASHBOARD GRID ── */
+    #screen-dashboard { justify-content: flex-start; overflow-y: auto; padding: 40px 24px; }
+    .dash-inner { width: 100%; max-width: 540px; margin: 0 auto; }
+    .dash-top-label { font-size: 10px; letter-spacing: 0.22em; color: var(--muted); text-transform: uppercase; margin-bottom: 28px; text-align: center; }
+    .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 480px) { .dash-grid { grid-template-columns: 1fr; } }
+    .col-span-2 { grid-column: span 2; }
+    @media (max-width: 480px) { .col-span-2 { grid-column: span 1; } }
+
+    .nav-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 20px 22px; cursor: pointer; position: relative; overflow: hidden;
+      display: flex; align-items: center; gap: 14px;
+      transition: border-color 0.25s, transform 0.25s;
+    }
+    .nav-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--accent); transform: scaleX(0); transform-origin: left;
+      transition: transform 0.35s cubic-bezier(0.16,1,0.3,1);
+    }
+    .nav-card:hover { border-color: rgba(61,127,255,0.4); transform: translateY(-2px); }
+    .nav-card:hover::before { transform: scaleX(1); }
+    .nav-card.disabled { opacity: 0.42; cursor: default; pointer-events: none; }
+    .nav-card.bot-card {
+      background: #111f40; border-color: #1e3d7a;
+      box-shadow: 0 0 28px rgba(61,127,255,0.18);
+    }
+    .nav-card.bot-card:hover { border-color: #3d7eff; box-shadow: 0 0 40px rgba(61,127,255,0.32); transform: translateY(-2px); }
+    .nav-card.bot-card::before { background: #5b93ff; }
+    .nav-card.bot-card .nav-card-title { color: #fff; font-size: 16px; }
+    .nav-card.bot-card .nav-card-sub   { color: rgba(255,255,255,0.5); }
+    .nav-card.bot-card .nav-card-arrow { color: #5b93ff; }
+    .nav-card.bot-card .nav-card-icon  { background: rgba(61,127,255,0.18); }
+    .nav-card-icon {
+      width: 36px; height: 36px; border-radius: 8px; background: rgba(61,127,255,0.08);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .nav-card-body { flex: 1; min-width: 0; }
+    .nav-card-title { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nav-card-sub   { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .nav-card-arrow { color: var(--accent); transition: transform 0.2s; flex-shrink: 0; }
+    .nav-card:hover .nav-card-arrow { transform: translateX(4px); }
+    .badge-soon {
+      font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 600;
+      padding: 2px 8px; background: rgba(100,116,139,0.12); border: 1px solid #2a3a50;
+      border-radius: 20px; color: #475569; flex-shrink: 0;
+    }
+
+    /* ── CALC SCREENS ── */
+    #screen-fire, #screen-impuestos { justify-content: flex-start; overflow-y: auto; padding: 32px 24px 80px; }
+    .calc-inner { width: 100%; max-width: 700px; margin: 0 auto; }
+    .calc-result-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 16px; }
+    @media (max-width: 540px) { .calc-result-grid { grid-template-columns: 1fr 1fr; } }
+    .calc-res-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 18px 18px 14px; }
+    .calc-res-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+    .calc-res-val { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; color: var(--text); }
+    .calc-res-val.accent   { color: var(--accent); }
+    .calc-res-val.positive { color: #22c55e; }
+    .calc-res-val.negative { color: #ef4444; }
+    .calc-res-val.neon     { color: #00ff6a; text-shadow: 0 0 14px rgba(0,255,106,0.45); }
+    .fire-progress-wrap  { margin-top: 8px; }
+    .fire-progress-track { height: 5px; background: var(--muted2); border-radius: 3px; overflow: hidden; }
+    .fire-progress-fill  { height: 100%; background: linear-gradient(90deg, #3d7eff, #00ff6a); border-radius: 3px; transition: width 0.5s ease; }
+    .tax-bracket-row { display: flex; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+    .tax-bracket-row:last-child { border-bottom: none; }
+    .tax-bracket-range  { font-size: 12px; color: var(--muted); flex: 1; }
+    .tax-bracket-rate   { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); min-width: 34px; text-align: right; }
+    .tax-bracket-amount { font-size: 12px; color: var(--text); min-width: 88px; text-align: right; }
+    .tax-bar-wrap { width: 70px; height: 4px; background: var(--muted2); border-radius: 2px; }
+    .tax-bar     { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; }
+
+    /* ── BROKERS SCREEN ── */
+    #screen-brokers { justify-content: flex-start; overflow-y: auto; padding: 32px 24px 80px; }
+    .brokers-inner { width: 100%; max-width: 860px; margin: 0 auto; }
+    .broker-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px;
+    }
+    .broker-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 20px 22px; display: flex; flex-direction: column; gap: 14px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .broker-card:hover { border-color: rgba(61,127,255,0.3); transform: translateY(-2px); }
+    .broker-top { display: flex; align-items: center; gap: 14px; }
+    .broker-logo {
+      width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: #fff;
+    }
+    .broker-name { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .broker-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+    .broker-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+    .broker-tag {
+      font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase;
+      padding: 3px 9px; border: 1px solid var(--border); border-radius: 20px; color: var(--muted);
+    }
+    .broker-link {
+      display: inline-flex; align-items: center; gap: 7px; margin-top: auto;
+      font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--accent); font-weight: 500; text-decoration: none;
+      transition: gap 0.2s;
+    }
+    .broker-link:hover { gap: 11px; }
+    .broker-link.referral { color: #22c55e; }
+    .broker-link.referral svg path { stroke: #22c55e; }
+
+    /* ── PORTFOLIO PAGE ── */
+    #screen-portfolio { justify-content: flex-start; overflow-y: auto; padding: 32px 24px 80px; }
+    .port-inner { width: 100%; max-width: 860px; margin: 0 auto; }
+    .port-header { display: flex; align-items: center; gap: 16px; margin-bottom: 48px; }
+    .btn-back {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); background: none; border: none; cursor: pointer;
+      padding: 6px 0; transition: color 0.2s;
+    }
+    .btn-back:hover { color: var(--text); }
+    .port-name {
+      font-family: 'Space Grotesk', sans-serif; font-size: 20px;
+      font-weight: 700; letter-spacing: -0.01em; color: var(--text); margin-left: auto;
+    }
+    .metrics-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px; margin-bottom: 28px;
+    }
+    .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 20px 18px; }
+    .metric-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+    .metric-value { font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; color: var(--text); }
+    .metric-value.positive { color: #22c55e; }
+    .metric-value.negative { color: #ef4444; }
+
+    .editable-card { cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+    .editable-card:hover { border-color: rgba(61,127,255,0.4); background: rgba(61,127,255,0.03); }
+    .editable-card:hover .edit-hint { opacity: 1; }
+    .edit-hint { font-size: 9px; letter-spacing: 0.06em; color: var(--accent); opacity: 0; transition: opacity 0.2s; margin-left: 4px; }
+    .metric-input {
+      background: none; border: none; border-bottom: 1px solid var(--accent);
+      color: var(--text); font-family: 'Space Grotesk', sans-serif;
+      font-size: 22px; font-weight: 700; width: 100%; outline: none; padding-bottom: 2px;
+    }
+    .metric-input::placeholder { color: var(--muted); font-size: 15px; font-weight: 400; }
+
+    .section-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 28px; margin-bottom: 16px; }
+    .section-title { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; }
+
+    .position-row { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .position-row:last-child { border-bottom: none; }
+    .pos-ticker { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; color: var(--text); width: 70px; }
+    .pos-broker { font-size: 11px; color: var(--muted); flex: 1; }
+    .pos-value { font-size: 13px; font-weight: 500; color: var(--text); text-align: right; min-width: 80px; }
+
+    /* ── COMPOUND INTEREST ── */
+    .ci-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 20px 36px; margin-bottom: 28px;
+    }
+    @media (max-width: 580px) { .ci-grid { grid-template-columns: 1fr; } }
+
+    .ci-field-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+    .ci-field-label { font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); }
+    .ci-field-val { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; color: var(--text); }
+
+    input[type=range] {
+      -webkit-appearance: none; width: 100%; height: 3px;
+      background: var(--muted2); border-radius: 2px; outline: none; cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px;
+      background: var(--accent); border-radius: 50%; cursor: pointer; transition: transform 0.15s;
+    }
+    input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.25); }
+    input[type=range]::-moz-range-thumb {
+      width: 16px; height: 16px; background: var(--accent);
+      border-radius: 50%; border: none; cursor: pointer;
+    }
+
+    .ci-results {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 10px; margin-bottom: 24px;
+    }
+    @media (max-width: 580px) { .ci-results { grid-template-columns: 1fr 1fr; } }
+
+    .ci-res-item { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; }
+    .ci-res-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+    .ci-res-val { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; color: var(--text); }
+    .ci-res-val.accent   { color: var(--accent); }
+    .ci-res-val.positive { color: #22c55e; }
+
+    .ci-chart-wrap { position: relative; height: 220px; }
+
+    /* ── TABS ── */
+    .tab-bar {
+      display: flex; gap: 4px; margin-bottom: 20px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 4px;
+    }
+    .tab-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 9px 16px; border: none; border-radius: 4px; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 500;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      background: transparent; color: var(--muted);
+      transition: background 0.2s, color 0.2s;
+    }
+    .tab-btn.active { background: var(--surface); color: var(--text); }
+    .tab-btn .tab-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .tab-btn.active .tab-dot { animation: pulse 2s ease infinite; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .pos-tag {
+      font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 3px; font-weight: 500; margin-left: 8px;
+    }
+    .pos-tag.stake  { background: rgba(34,197,94,0.12); color: #22c55e; }
+    .pos-tag.spec   { background: rgba(61,127,255,0.12); color: #3d7eff; }
+    .pos-tag.renta  { background: rgba(250,200,80,0.12); color: #fac850; }
+
+    /* ── ALLOCATION DONUT ── */
+    .alloc-wrap {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 32px;
+      align-items: center;
+    }
+    @media (max-width: 620px) {
+      .alloc-wrap { grid-template-columns: 1fr; }
+      .alloc-chart-wrap { max-width: 220px; margin: 0 auto; }
+    }
+    .alloc-chart-wrap { position: relative; }
+    .alloc-legend { display: flex; flex-direction: column; gap: 4px; }
+    .legend-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-radius: 5px;
+      transition: background 0.15s; cursor: default;
+    }
+    .legend-row:hover { background: rgba(255,255,255,0.025); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .legend-ticker { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); width: 56px; }
+    .legend-name  { font-size: 11px; color: var(--muted); flex: 1; }
+    .legend-val   { font-size: 11px; color: var(--muted); text-align: right; min-width: 58px; }
+    .legend-pct   { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; min-width: 44px; text-align: right; }
+
+    /* ── LIBROS ── */
+    #screen-libros { justify-content: flex-start; overflow-y: auto; padding: 32px 24px 80px; }
+    .book-category-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 14px; letter-spacing: 0.03em; }
+    .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .book-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 18px; display: flex; gap: 16px; align-items: flex-start;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .book-card:hover { border-color: rgba(61,127,255,0.35); transform: translateY(-2px); }
+    .book-cover {
+      width: 52px; height: 70px; border-radius: 5px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .book-initial { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.5); }
+    .book-info { flex: 1; min-width: 0; }
+    .book-title  { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 2px; line-height: 1.3; }
+    .book-author { font-size: 11px; color: var(--accent); margin-bottom: 6px; }
+    .book-desc   { font-size: 11px; color: var(--muted); line-height: 1.55; margin-bottom: 12px; }
+    .book-btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 500; letter-spacing: 0.06em;
+      color: #fff; background: var(--accent); text-decoration: none;
+      padding: 6px 14px; border-radius: 4px; transition: background 0.2s, transform 0.15s;
+    }
+    .book-btn:hover { background: #5b93ff; transform: translateY(-1px); }
+
+    /* ── STRATEGY SECTION ── */
+    .strategy-group { border-bottom: 1px solid var(--border); padding-bottom: 14px; margin-bottom: 14px; }
+    .strategy-last  { border-bottom: none; padding-bottom: 0; margin-bottom: 0; }
+    .strategy-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .strategy-label  { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: 0.02em; }
+    .strategy-total  { font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 700; color: var(--muted); }
+    .strategy-row { display: flex; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(26,34,53,0.7); gap: 8px; }
+    .strategy-row:last-child { border-bottom: none; }
+    .str-ticker { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px; color: var(--text); width: 54px; flex-shrink: 0; }
+    .str-name   { font-size: 11px; color: var(--muted); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .str-val    { font-size: 12px; color: var(--text); min-width: 62px; text-align: right; flex-shrink: 0; }
+    .rent-badge {
+      min-width: 54px; text-align: center; padding: 3px 8px; border-radius: 4px;
+      font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 700;
+      cursor: pointer; transition: opacity 0.15s; flex-shrink: 0; border: 1px solid transparent;
+      user-select: none;
+    }
+    .rent-badge:hover { opacity: 0.7; }
+    .rent-badge.pos     { background: rgba(34,197,94,0.12); color: #22c55e; border-color: rgba(34,197,94,0.25); }
+    .rent-badge.neg     { background: rgba(239,68,68,0.1);  color: #ef4444; border-color: rgba(239,68,68,0.2); }
+    .rent-badge.neutral { background: var(--muted2); color: var(--muted); border-color: var(--border); }
+    .rent-input {
+      width: 58px; background: var(--bg); border: 1px solid var(--accent);
+      color: var(--text); font-family: 'Space Grotesk', sans-serif;
+      font-size: 12px; font-weight: 700; text-align: center;
+      border-radius: 4px; padding: 3px 4px; outline: none;
+    }
+
+    /* ── SOBRE MÍ ── */
+    #screen-about { justify-content: flex-start; overflow-y: auto; padding: 32px 24px 80px; }
+    .about-hero { display: grid; grid-template-columns: 140px 1fr; gap: 24px; align-items: start; margin-bottom: 24px; }
+    @media (max-width: 480px) { .about-hero { grid-template-columns: 1fr; } }
+
+    .photo-placeholder {
+      width: 140px; height: 180px; border-radius: 10px;
+      border: 2px dashed var(--border); background: var(--surface);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; color: var(--muted); cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .photo-placeholder:hover { border-color: var(--accent); }
+    .photo-label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+    .about-hero-text { padding-top: 4px; }
+    .about-name { font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .about-role { font-size: 12px; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 12px; text-transform: uppercase; }
+    .about-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .about-tag  { font-size: 11px; padding: 3px 10px; background: var(--muted2); border: 1px solid var(--border); border-radius: 20px; color: var(--muted); }
+    .about-para { font-size: 13px; color: var(--muted); line-height: 1.75; margin-bottom: 12px; }
+    .about-para:last-child { margin-bottom: 0; }
+    .about-highlight { color: var(--accent); font-weight: 500; }
+    .about-quote {
+      font-size: 14px; color: var(--text); line-height: 1.75; font-style: italic;
+      border-left: 2px solid var(--accent); padding-left: 16px; margin-top: 4px;
+    }
+
+    /* Slide tabs */
+    .slide-tabs {
+      display: flex; gap: 0; margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .slide-tab {
+      padding: 8px 20px 10px; background: none; border: none; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .slide-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+    .slide-panel { display: block; }
+    .slide-panel.hidden { display: none; }
+
+    /* Objetivos */
+    .objetivo-item { display: flex; gap: 16px; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid var(--border); }
+    .objetivo-item:last-child { border-bottom: none; }
+    .objetivo-num  { font-family: 'Space Grotesk', sans-serif; font-size: 24px; font-weight: 700; color: var(--muted2); min-width: 36px; line-height: 1; padding-top: 2px; }
+    .objetivo-title { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .objetivo-desc  { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+    .learning-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .learning-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .learning-text { font-size: 12px; color: var(--muted); line-height: 1.55; }
+
+    /* ── AUTH ── */
+    .auth-box { width: min(360px, 100%); }
+    .auth-tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+    .auth-tab {
+      flex: 1; padding: 10px 0; background: none; border: none; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+      border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.2s, border-color 0.2s;
+    }
+    .auth-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+    .auth-input {
+      width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+      padding: 12px 14px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 13px;
+      outline: none; margin-bottom: 12px; transition: border-color 0.2s;
+    }
+    .auth-input:focus { border-color: var(--accent); }
+    .auth-msg { margin-top: 14px; font-size: 12px; text-align: center; min-height: 16px; }
+    .auth-msg.ok  { color: #22c55e; }
+    .auth-msg.err { color: #ef4444; }
+    .logout-link {
+      position: absolute; top: 24px; right: 24px;
+      font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--muted); background: none; border: none; cursor: pointer; transition: color 0.2s;
+    }
+    .logout-link:hover { color: var(--text); }
+
+    /* ── MIS ACTIVOS ── */
+    #screen-assets { justify-content: flex-start; overflow-y: auto; padding: 32px 24px 80px; }
+
+    .upload-zone {
+      border: 2px dashed var(--border); border-radius: 10px;
+      padding: 36px 24px; text-align: center; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative; overflow: hidden;
+    }
+    .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: rgba(61,127,255,0.03); }
+    .upload-content { position: relative; z-index: 2; transition: transform 0.45s cubic-bezier(0.6,0,0.4,1), opacity 0.4s ease; }
+    .upload-zone.absorbing .upload-content { transform: scale(0.15) rotate(260deg); opacity: 0; }
+
+    /* Vortex effect */
+    .vortex-disc {
+      position: absolute; top: 50%; left: 50%; width: 130px; height: 130px;
+      margin: -65px 0 0 -65px; border-radius: 50%; z-index: 1;
+      background: conic-gradient(from 0deg,
+        transparent 0deg, rgba(61,127,255,0.5) 50deg, transparent 130deg,
+        rgba(61,127,255,0.3) 210deg, transparent 290deg, rgba(61,127,255,0.4) 340deg, transparent 360deg);
+      filter: blur(3px);
+      opacity: 0; transition: opacity 0.3s ease;
+      animation: vortex-spin 2.4s linear infinite;
+    }
+    .upload-zone.dragover .vortex-disc,
+    .upload-zone.absorbing .vortex-disc { opacity: 1; }
+    .upload-zone.absorbing .vortex-disc { animation-duration: 0.35s; }
+
+    .vortex-rings { position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+    .ring { position: absolute; border-radius: 50%; border: 1.5px solid rgba(61,127,255,0.3); opacity: 0; transition: opacity 0.3s ease; }
+    .upload-zone.dragover .ring, .upload-zone.absorbing .ring { opacity: 1; }
+    .ring.r1 { width: 50px;  height: 50px;  animation: vortex-spin 1.8s linear infinite; }
+    .ring.r2 { width: 90px;  height: 90px;  border-color: rgba(61,127,255,0.2);  animation: vortex-spin-rev 2.6s linear infinite; }
+    .ring.r3 { width: 140px; height: 140px; border-color: rgba(61,127,255,0.12); animation: vortex-spin 3.6s linear infinite; }
+    .upload-zone.absorbing .ring.r1 { animation-duration: 0.3s; }
+    .upload-zone.absorbing .ring.r2 { animation-duration: 0.32s; }
+    .upload-zone.absorbing .ring.r3 { animation-duration: 0.36s; }
+
+    @keyframes vortex-spin     { to { transform: rotate(360deg); } }
+    @keyframes vortex-spin-rev { to { transform: rotate(-360deg); } }
+
+    .upload-text { font-size: 13px; color: var(--text); font-weight: 500; margin-top: 12px; }
+    .upload-sub  { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .upload-msg  { font-size: 12px; margin-top: 12px; padding: 10px 14px; border-radius: 6px; }
+    .upload-msg.ok   { background: rgba(34,197,94,0.1);  color: #22c55e; border: 1px solid rgba(34,197,94,0.25); }
+    .upload-msg.err  { background: rgba(239,68,68,0.1);  color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
+
+    .add-asset-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; }
+    @media (max-width: 560px) { .add-asset-form { grid-template-columns: 1fr 1fr; } }
+    .asset-input, .asset-select {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      padding: 10px 12px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 13px; outline: none;
+      transition: border-color 0.2s;
+    }
+    .asset-input:focus, .asset-select:focus { border-color: var(--accent); }
+    .add-asset-btn {
+      background: var(--accent); color: #fff; border: none; border-radius: 6px;
+      padding: 10px 18px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+      cursor: pointer; transition: background 0.2s; white-space: nowrap;
+    }
+    .add-asset-btn:hover { background: #5b93ff; }
+
+    .broker-group { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 14px; overflow: hidden; }
+    .broker-group-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.015);
+    }
+    .broker-group-name  { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: var(--text); }
+    .broker-group-total { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: var(--accent); }
+    .asset-row {
+      display: grid; grid-template-columns: 90px 1fr 110px 32px; gap: 10px; align-items: center;
+      padding: 10px 20px; border-bottom: 1px solid rgba(26,34,53,0.6);
+    }
+    .asset-row:last-child { border-bottom: none; }
+    .asset-row input, .asset-row select {
+      background: transparent; border: 1px solid transparent; border-radius: 5px;
+      padding: 6px 8px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 12px; outline: none;
+      transition: border-color 0.15s, background 0.15s; width: 100%;
+    }
+    .asset-row input:hover, .asset-row select:hover { background: var(--bg); border-color: var(--border); }
+    .asset-row input:focus, .asset-row select:focus { background: var(--bg); border-color: var(--accent); }
+    .asset-row .asset-ticker-input { font-family: 'Space Grotesk', sans-serif; font-weight: 700; }
+    .asset-row .asset-value-input { text-align: right; }
+    .asset-delete {
+      width: 26px; height: 26px; border-radius: 5px; border: none; background: transparent;
+      color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+    .asset-delete:hover { background: rgba(239,68,68,0.12); color: #ef4444; }
+    .assets-empty { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
+    .asset-hint { font-size: 11px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+    .example-banner {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(61,127,255,0.06); border: 1px solid rgba(61,127,255,0.2);
+      border-radius: 8px; padding: 12px 16px; margin-bottom: 14px;
+      font-size: 12px; color: var(--text); line-height: 1.5;
+    }
+    .example-group { opacity: 0.85; }
+    .example-tag {
+      font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600;
+      color: var(--accent); background: rgba(61,127,255,0.12); padding: 2px 7px; border-radius: 20px; margin-left: 6px;
+    }
+    .example-group input:disabled { cursor: default; color: var(--muted); }
+    @keyframes slideUp { from { transform: translateY(105%); } to { transform: translateY(0); } }
+    @keyframes fadeUp  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+    @keyframes pulse   { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+  </style>
+</head>
+<body>
+
+  <div class="grid-bg"></div>
+
+  <!-- ─── SCREEN 1: INTRO ─── -->
+  <div class="screen" id="screen-intro">
+    <div class="intro-eyebrow">Portfolio Tracker</div>
+    <div class="title-block">
+      <div class="word-wrap"><span class="word-inner word-break">BREAK</span></div>
+      <div class="word-wrap"><span class="word-inner word-even">EVEN</span></div>
+    </div>
+    <div class="intro-line"></div>
+    <p class="intro-sub">Tu cartera · Tu evolución</p>
+    <button class="btn-continue" id="btn-continue">
+      Continuar
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ─── SCREEN: AUTH (login/registro) ─── -->
+  <div class="screen hidden" id="screen-auth">
+    <div class="auth-box">
+      <div class="intro-eyebrow" style="margin-bottom:24px">Acceso</div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth="login">Entrar</button>
+        <button class="auth-tab" data-auth="signup">Crear cuenta</button>
+      </div>
+
+      <input type="email"    id="auth-email"    class="auth-input" placeholder="Email" autocomplete="email">
+      <input type="password" id="auth-password" class="auth-input" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="current-password">
+
+      <button class="btn-continue" id="btn-auth-submit" style="width:100%;justify-content:center;margin-top:8px">
+        <span id="auth-submit-label">Entrar</span>
+      </button>
+
+      <div id="auth-msg"></div>
+    </div>
+  </div>
+
+  <!-- ─── SCREEN 2: DASHBOARD ─── -->
+  <div class="screen hidden" id="screen-dashboard">
+    <button class="logout-link" id="btn-logout">Cerrar sesión</button>
+    <div class="dash-inner">
+      <p class="dash-top-label">¿Qué quieres ver?</p>
+      <div class="dash-grid">
+
+        <!-- Portfolio — col span 2 -->
+        <div class="portfolio-card col-span-2" id="card-portfolio">
+          <div class="card-badge"><span class="card-badge-dot"></span>Cartera activa</div>
+          <div class="card-title">PORTFOLIO MIGUEL</div>
+          <div class="card-brokers">Revolut · MyInvestor · Interactive Brokers</div>
+          <div class="card-enter">Entrar
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+
+        <!-- Brokers -->
+        <div class="nav-card" id="card-brokers">
+          <div class="nav-card-icon">
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><rect x="1" y="5" width="15" height="10" rx="2" stroke="#3d7eff" stroke-width="1.3"/><path d="M5 5V4a3.5 3.5 0 017 0v1" stroke="#3d7eff" stroke-width="1.3" stroke-linecap="round"/><circle cx="8.5" cy="10" r="1.4" fill="#3d7eff"/></svg>
+          </div>
+          <div class="nav-card-body">
+            <div class="nav-card-title">Brokers & Exchanges</div>
+            <div class="nav-card-sub">Bolsa · Cripto · Referidos</div>
+          </div>
+          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+
+        <!-- Dividendos — próximamente -->
+        <div class="nav-card disabled">
+          <div class="nav-card-icon">
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="6.5" stroke="#3d7eff" stroke-width="1.3"/><path d="M8.5 5v3.5l2 1.5" stroke="#3d7eff" stroke-width="1.3" stroke-linecap="round"/><path d="M5.5 13l1.5-1.5M11.5 4.5L10 6" stroke="#3d7eff" stroke-width="1.1" stroke-linecap="round"/></svg>
+          </div>
+          <div class="nav-card-body">
+            <div class="nav-card-title">Cartera Dividendos</div>
+            <div class="nav-card-sub">Renta pasiva · Yield</div>
+          </div>
+          <span class="badge-soon">Pronto</span>
+        </div>
+
+        <!-- FIRE Calculator -->
+        <div class="nav-card" id="card-fire">
+          <div class="nav-card-icon">
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M8.5 2C6 5 4 7 4 10a4.5 4.5 0 009 0c0-3-2-5-4.5-8z" stroke="#3d7eff" stroke-width="1.3" stroke-linejoin="round"/><path d="M8.5 13.5v.5" stroke="#3d7eff" stroke-width="1.3" stroke-linecap="round"/></svg>
+          </div>
+          <div class="nav-card-body">
+            <div class="nav-card-title">Calculadora FIRE</div>
+            <div class="nav-card-sub">Independencia financiera</div>
+          </div>
+          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+
+        <!-- Impuestos España -->
+        <div class="nav-card" id="card-impuestos">
+          <div class="nav-card-icon">
+            <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><rect x="2" y="2" width="13" height="13" rx="2" stroke="#3d7eff" stroke-width="1.3"/><path d="M5 8.5h7M5 11h4M5 6h7" stroke="#3d7eff" stroke-width="1.2" stroke-linecap="round"/></svg>
+          </div>
+          <div class="nav-card-body">
+            <div class="nav-card-title">Impuestos España</div>
+            <div class="nav-card-sub">Plusvalías · IRPF</div>
+          </div>
+          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+
+        <!-- BOT — col span 2, bright blue -->
+        <a class="nav-card bot-card col-span-2" href="https://t.me/MyPersonalInvest_bot" target="_blank" rel="noopener" style="text-decoration:none">
+          <div class="nav-card-icon">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M17.5 2.5L1.5 8.5l5 2 2 6 2.5-3 4 3 2.5-14z" stroke="#5b93ff" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.5 10.5l4.5 3.5" stroke="#5b93ff" stroke-width="1.2" stroke-linecap="round"/></svg>
+          </div>
+          <div class="nav-card-body">
+            <div class="nav-card-title">@MyPersonalInvest_bot</div>
+            <div class="nav-card-sub">Tu asistente de inversión en Telegram · Gratis el primer mes</div>
+          </div>
+          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SCREEN 3: PORTFOLIO ─── -->
+  <div class="screen hidden" id="screen-portfolio">
+    <div class="port-inner">
+
+      <div class="port-header">
+        <button class="btn-back" id="btn-back">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M12 7H2M6 3L2 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Volver
+        </button>
+        <div class="port-name">PORTFOLIO MIGUEL</div>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card editable-card" id="mc-total">
+          <div class="metric-label">
+            Valor total
+            <span class="edit-hint">· clic para editar</span>
+          </div>
+          <div class="metric-value" id="mv-total">—</div>
+        </div>
+        <div class="metric-card editable-card" id="mc-invested">
+          <div class="metric-label">
+            Invertido
+            <span class="edit-hint">· clic para editar</span>
+          </div>
+          <div class="metric-value" id="mv-invested">—</div>
+        </div>
+        <div class="metric-card" id="mc-pnl">
+          <div class="metric-label">Ganancia / Pérdida</div>
+          <div class="metric-value" id="mv-pnl">—</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Posiciones</div>
+          <div class="metric-value" id="mv-positions">10</div>
+        </div>
+      </div>
+
+      <!-- ─── LIBROS ─── -->
+      <div class="nav-card" id="card-libros" style="margin-bottom:16px">
+        <div class="nav-card-icon">
+          <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><rect x="3" y="2" width="9" height="13" rx="1.5" stroke="#3d7eff" stroke-width="1.3"/><path d="M3 5h9M3 8h6M3 11h5" stroke="#3d7eff" stroke-width="1.1" stroke-linecap="round"/><path d="M12 5v10l2-1.5L16 15V5h-4z" stroke="#3d7eff" stroke-width="1.2" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="nav-card-body">
+          <div class="nav-card-title">Libros Recomendados</div>
+          <div class="nav-card-sub">Finanzas · Mentalidad · Negocio</div>
+        </div>
+        <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <!-- ─── SOBRE MÍ ─── -->
+      <div class="nav-card" id="card-about" style="margin-bottom:16px">
+        <div class="nav-card-icon">
+          <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="6" r="3" stroke="#3d7eff" stroke-width="1.3"/><path d="M2.5 15c0-3.314 2.686-5 6-5s6 1.686 6 5" stroke="#3d7eff" stroke-width="1.3" stroke-linecap="round"/></svg>
+        </div>
+        <div class="nav-card-body">
+          <div class="nav-card-title">Sobre mí</div>
+          <div class="nav-card-sub">Filosofía · Objetivos · Inversor</div>
+        </div>
+        <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <!-- ─── MIS ACTIVOS ─── -->
+      <div class="nav-card" id="card-assets" style="margin-bottom:16px">
+        <div class="nav-card-icon">
+          <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M8.5 2v9M5 7.5l3.5 3.5L12 7.5" stroke="#3d7eff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M2.5 12v1.5A1.5 1.5 0 004 15h9a1.5 1.5 0 001.5-1.5V12" stroke="#3d7eff" stroke-width="1.4" stroke-linecap="round"/></svg>
+        </div>
+        <div class="nav-card-body">
+          <div class="nav-card-title">Mis Activos</div>
+          <div class="nav-card-sub">Importar archivos · Editar por broker</div>
+        </div>
+        <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
+      <!-- ─── DISTRIBUCIÓN ─── -->
+      <div class="section-card">
+        <div class="section-title">Distribución del portfolio</div>
+        <div class="alloc-wrap">
+          <div class="alloc-chart-wrap">
+            <canvas id="alloc-chart"></canvas>
+          </div>
+          <div class="alloc-legend" id="alloc-legend"></div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">Posiciones actuales</div>
+
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="trad">
+            <span class="tab-dot" style="background:#3d7eff"></span>
+            Tradicional
+          </button>
+          <button class="tab-btn" data-tab="crypto">
+            <span class="tab-dot" style="background:#f7931a"></span>
+            Cripto
+          </button>
+        </div>
+
+        <!-- TRADICIONAL -->
+        <div class="tab-panel active" id="panel-trad">
+          <div class="position-row">
+            <span class="pos-ticker">KO</span>
+            <span class="pos-broker">Revolut · Coca-Cola</span>
+            <span class="pos-tag renta">Dividendo</span>
+            <span class="pos-value">~$103</span>
+          </div>
+          <div class="position-row">
+            <span class="pos-ticker">BTI</span>
+            <span class="pos-broker">Revolut · British American Tobacco</span>
+            <span class="pos-tag renta">Dividendo</span>
+            <span class="pos-value">~$26</span>
+          </div>
+          <div class="position-row">
+            <span class="pos-ticker">PLTR</span>
+            <span class="pos-broker">Revolut · Palantir</span>
+            <span class="pos-tag spec">Especulativo</span>
+            <span class="pos-value">~$15</span>
+          </div>
+          <div class="position-row">
+            <span class="pos-ticker">COBAS</span>
+            <span class="pos-broker">MyInvestor · Cobas International</span>
+            <span class="pos-tag renta">Fondo</span>
+            <span class="pos-value">~€150</span>
+          </div>
+          <div class="position-row">
+            <span class="pos-ticker">SCDV</span>
+            <span class="pos-broker">Interactive Brokers · Scandium Canada</span>
+            <span class="pos-tag spec">Especulativo</span>
+            <span class="pos-value">~€2.084</span>
+          </div>
+        </div>
+
+        <!-- CRIPTO -->
+        <div class="tab-panel" id="panel-crypto">
+          <div class="position-row">
+            <span class="pos-ticker">XRP</span>
+            <span class="pos-broker">Bybit · Reto XRP</span>
+            <span class="pos-tag spec">Trading</span>
+            <span class="pos-value">~€400</span>
+          </div>
+          <div class="position-row">
+            <span class="pos-ticker">USDC</span>
+            <span class="pos-broker">CoinDepo · Stablecoin</span>
+            <span class="pos-tag stake">Staking</span>
+            <span class="pos-value">—</span>
+          </div>
+          <div class="position-row">
+            <span class="pos-ticker">CPD</span>
+            <span class="pos-broker">CoinDepo · Token nativo</span>
+            <span class="pos-tag stake">Staking 21%</span>
+            <span class="pos-value">~795 tkn</span>
+          </div>
+          <div class="position-row">
+            <span class="pos-ticker">XLM</span>
+            <span class="pos-broker">CoinDepo · Stellar</span>
+            <span class="pos-tag stake">Staking 14%</span>
+            <span class="pos-value">~6.165 XLM</span>
+          </div>
+          <div class="position-row">
+            <span class="pos-ticker">EQUITO</span>
+            <span class="pos-broker">Equito · Real Estate Tokenizado</span>
+            <span class="pos-tag renta">Renta</span>
+            <span class="pos-value">~€900</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ─── RESUMEN POR ESTRATEGIA ─── -->
+      <div class="section-card">
+        <div class="section-title">Resumen por estrategia</div>
+
+        <!-- ACCIONES -->
+        <div class="strategy-group">
+          <div class="strategy-header">
+            <span class="strategy-label">📈 Acciones</span>
+            <span class="strategy-total">~$144</span>
+          </div>
+          <div class="strategy-row">
+            <span class="str-ticker">KO</span>
+            <span class="str-name">Coca-Cola · Dividendo</span>
+            <span class="str-val">~$103</span>
+            <span class="rent-badge neutral" data-rkey="rent_KO">—</span>
+          </div>
+          <div class="strategy-row">
+            <span class="str-ticker">BTI</span>
+            <span class="str-name">British Am. Tobacco · Dividendo</span>
+            <span class="str-val">~$26</span>
+            <span class="rent-badge neutral" data-rkey="rent_BTI">—</span>
+          </div>
+          <div class="strategy-row">
+            <span class="str-ticker">PLTR</span>
+            <span class="str-name">Palantir · Growth</span>
+            <span class="str-val">~$15</span>
+            <span class="rent-badge neutral" data-rkey="rent_PLTR">—</span>
+          </div>
+        </div>
+
+        <!-- VALUE -->
+        <div class="strategy-group">
+          <div class="strategy-header">
+            <span class="strategy-label">💎 Value</span>
+            <span class="strategy-total">~€150</span>
+          </div>
+          <div class="strategy-row">
+            <span class="str-ticker">COBAS</span>
+            <span class="str-name">Cobas International · Fondo value</span>
+            <span class="str-val">~€150</span>
+            <span class="rent-badge neutral" data-rkey="rent_COBAS">—</span>
+          </div>
+        </div>
+
+        <!-- GEMAS -->
+        <div class="strategy-group">
+          <div class="strategy-header">
+            <span class="strategy-label">🔥 Gemas</span>
+            <span class="strategy-total">~€2.484</span>
+          </div>
+          <div class="strategy-row">
+            <span class="str-ticker">SCDV</span>
+            <span class="str-name">Scandium Canada · Micro-cap</span>
+            <span class="str-val">~€2.084</span>
+            <span class="rent-badge neutral" data-rkey="rent_SCDV">—</span>
+          </div>
+          <div class="strategy-row">
+            <span class="str-ticker">XRP</span>
+            <span class="str-name">XRP · Bybit</span>
+            <span class="str-val">~€400</span>
+            <span class="rent-badge neutral" data-rkey="rent_XRP">—</span>
+          </div>
+        </div>
+
+        <!-- FONDOS / RENTA -->
+        <div class="strategy-group strategy-last">
+          <div class="strategy-header">
+            <span class="strategy-label">🏦 Fondos / Renta</span>
+            <span class="strategy-total">~€1.150</span>
+          </div>
+          <div class="strategy-row">
+            <span class="str-ticker">EQUITO</span>
+            <span class="str-name">Real Estate Tokenizado</span>
+            <span class="str-val">~€900</span>
+            <span class="rent-badge neutral" data-rkey="rent_EQUITO">—</span>
+          </div>
+          <div class="strategy-row">
+            <span class="str-ticker">CPD</span>
+            <span class="str-name">CoinDepo Token · Staking</span>
+            <span class="str-val">~€100</span>
+            <span class="rent-badge pos" data-rkey="rent_CPD">+21%</span>
+          </div>
+          <div class="strategy-row">
+            <span class="str-ticker">XLM</span>
+            <span class="str-name">Stellar · Staking</span>
+            <span class="str-val">~€100</span>
+            <span class="rent-badge pos" data-rkey="rent_XLM">+14%</span>
+          </div>
+          <div class="strategy-row">
+            <span class="str-ticker">USDC</span>
+            <span class="str-name">Stablecoin · Staking</span>
+            <span class="str-val">—</span>
+            <span class="rent-badge neutral" data-rkey="rent_USDC">—</span>
+          </div>
+        </div>
+
+        <p style="font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:0.05em">Toca el % para editar · Se guarda en el navegador</p>
+      </div>
+
+      <!-- ─── INTERÉS COMPUESTO ─── -->
+      <div class="section-card">
+        <div class="section-title">Simulador · Interés compuesto</div>
+
+        <div class="ci-grid">
+          <div>
+            <div class="ci-field-header">
+              <span class="ci-field-label">Capital inicial</span>
+              <span class="ci-field-val" id="disp-capital">€1.000</span>
+            </div>
+            <input type="range" id="sl-capital" min="100" max="50000" step="100" value="1000">
+          </div>
+          <div>
+            <div class="ci-field-header">
+              <span class="ci-field-label">Aportación mensual</span>
+              <span class="ci-field-val" id="disp-monthly">€200</span>
+            </div>
+            <input type="range" id="sl-monthly" min="0" max="2000" step="50" value="200">
+          </div>
+          <div>
+            <div class="ci-field-header">
+              <span class="ci-field-label">Rentabilidad anual</span>
+              <span class="ci-field-val" id="disp-rate">7%</span>
+            </div>
+            <input type="range" id="sl-rate" min="1" max="20" step="0.5" value="7">
+          </div>
+          <div>
+            <div class="ci-field-header">
+              <span class="ci-field-label">Años</span>
+              <span class="ci-field-val" id="disp-years">20 años</span>
+            </div>
+            <input type="range" id="sl-years" min="1" max="40" step="1" value="20">
+          </div>
+        </div>
+
+        <div class="ci-results">
+          <div class="ci-res-item">
+            <div class="ci-res-label">Total invertido</div>
+            <div class="ci-res-val" id="r-invested">—</div>
+          </div>
+          <div class="ci-res-item">
+            <div class="ci-res-label">Valor final</div>
+            <div class="ci-res-val accent" id="r-final">—</div>
+          </div>
+          <div class="ci-res-item">
+            <div class="ci-res-label">Beneficio</div>
+            <div class="ci-res-val positive" id="r-profit">—</div>
+          </div>
+          <div class="ci-res-item">
+            <div class="ci-res-label">Multiplicador</div>
+            <div class="ci-res-val" id="r-mult">—</div>
+          </div>
+        </div>
+
+        <div class="ci-chart-wrap">
+          <canvas id="ci-chart"></canvas>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── SCREEN 4: BROKERS ─── -->
+  <div class="screen hidden" id="screen-brokers">
+    <div class="brokers-inner">
+
+      <div class="port-header">
+        <button class="btn-back" id="btn-back-brokers">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M12 7H2M6 3L2 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Volver
+        </button>
+        <div class="port-name">BROKERS & EXCHANGES</div>
+      </div>
+
+      <div class="tab-bar">
+        <button class="tab-btn active" data-btab="trad">
+          <span class="tab-dot" style="background:#3d7eff"></span>
+          Bolsa Tradicional
+        </button>
+        <button class="tab-btn" data-btab="crypto">
+          <span class="tab-dot" style="background:#f7931a"></span>
+          Cripto
+        </button>
+      </div>
+
+      <!-- TRADICIONAL -->
+      <div class="tab-panel active" id="bpanel-trad">
+        <div class="broker-grid">
+
+          <div class="broker-card">
+            <div class="broker-top">
+              <div class="broker-logo" style="background:#6E46E6">RV</div>
+              <div>
+                <div class="broker-name">Revolut</div>
+                <div class="broker-desc">Broker sin comisiones. Acciones y ETFs desde el móvil.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Acciones</span>
+              <span class="broker-tag">ETFs</span>
+              <span class="broker-tag">Sin comisiones</span>
+            </div>
+            <a href="#" class="broker-link">
+              Abrir cuenta
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+          <div class="broker-card">
+            <div class="broker-top">
+              <div class="broker-logo" style="background:#C41E3A">MI</div>
+              <div>
+                <div class="broker-name">MyInvestor</div>
+                <div class="broker-desc">Fondos indexados, roboadvisor y planes de pensiones.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Fondos</span>
+              <span class="broker-tag">PIAS</span>
+              <span class="broker-tag">Indexados</span>
+            </div>
+            <a href="#" class="broker-link">
+              Abrir cuenta
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+          <div class="broker-card">
+            <div class="broker-top">
+              <div class="broker-logo" style="background:#8B0000">IB</div>
+              <div>
+                <div class="broker-name">Interactive Brokers</div>
+                <div class="broker-desc">Broker profesional. Acceso a mercados globales.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Acciones</span>
+              <span class="broker-tag">Opciones</span>
+              <span class="broker-tag">Global</span>
+            </div>
+            <a href="#" class="broker-link">
+              Abrir cuenta
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+          <div class="broker-card">
+            <div class="broker-top">
+              <div class="broker-logo" style="background:#1a1a1a; border:1px solid #333">TR</div>
+              <div>
+                <div class="broker-name">Trade Republic</div>
+                <div class="broker-desc">App mobile-first. Sin comisiones, bonos al 4%.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Acciones</span>
+              <span class="broker-tag">ETFs</span>
+              <span class="broker-tag">Bonos</span>
+            </div>
+            <a href="#" class="broker-link">
+              Abrir cuenta
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+          <div class="broker-card">
+            <div class="broker-top">
+              <div class="broker-logo" style="background:#6AAF3D">eT</div>
+              <div>
+                <div class="broker-name">eToro</div>
+                <div class="broker-desc">Trading social con copy trading integrado.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Copy Trading</span>
+              <span class="broker-tag">CFDs</span>
+              <span class="broker-tag">Social</span>
+            </div>
+            <a href="#" class="broker-link">
+              Abrir cuenta
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+          <div class="broker-card">
+            <div class="broker-top">
+              <div class="broker-logo" style="background:#FF6200">DG</div>
+              <div>
+                <div class="broker-name">DeGiro</div>
+                <div class="broker-desc">Broker europeo con comisiones muy bajas.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Acciones</span>
+              <span class="broker-tag">ETFs</span>
+              <span class="broker-tag">Europa</span>
+            </div>
+            <a href="#" class="broker-link">
+              Abrir cuenta
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- CRIPTO -->
+      <div class="tab-panel" id="bpanel-crypto">
+        <div class="broker-grid">
+
+          <div class="broker-card">
+            <div class="broker-top">
+              <div class="broker-logo" style="background:#F7A600">BY</div>
+              <div>
+                <div class="broker-name">Bybit</div>
+                <div class="broker-desc">Exchange profesional. Spot, futuros y P2P.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Spot</span>
+              <span class="broker-tag">Futuros</span>
+              <span class="broker-tag">P2P</span>
+            </div>
+            <a href="#" class="broker-link">
+              Registrarte
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+          <div class="broker-card">
+            <div class="broker-top">
+              <div class="broker-logo" style="background:#F3BA2F">BN</div>
+              <div>
+                <div class="broker-name">Binance</div>
+                <div class="broker-desc">El mayor exchange del mundo por volumen.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Spot</span>
+              <span class="broker-tag">Futuros</span>
+              <span class="broker-tag">Staking</span>
+            </div>
+            <a href="#" class="broker-link">
+              Registrarte
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+          <div class="broker-card">
+            <div class="broker-top">
+              <div class="broker-logo" style="background:#0066cc">CD</div>
+              <div>
+                <div class="broker-name">CoinDepo</div>
+                <div class="broker-desc">Depósitos cripto con rendimientos de hasta el 21%.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Depósitos</span>
+              <span class="broker-tag">Staking</span>
+              <span class="broker-tag">DeFi</span>
+            </div>
+            <a href="#" class="broker-link">
+              Registrarte
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+          <div class="broker-card">
+            <div class="broker-top">
+              <div class="broker-logo" style="background:#0052FF">CB</div>
+              <div>
+                <div class="broker-name">Coinbase</div>
+                <div class="broker-desc">El exchange más regulado. Ideal para empezar.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Spot</span>
+              <span class="broker-tag">Regulado</span>
+              <span class="broker-tag">Fácil</span>
+            </div>
+            <a href="#" class="broker-link">
+              Registrarte
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+          <div class="broker-card">
+            <div class="broker-top">
+              <div class="broker-logo" style="background:#5741D9">KR</div>
+              <div>
+                <div class="broker-name">Kraken</div>
+                <div class="broker-desc">Exchange veterano. Alta seguridad y staking.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Spot</span>
+              <span class="broker-tag">Staking</span>
+              <span class="broker-tag">Seguridad</span>
+            </div>
+            <a href="#" class="broker-link">
+              Registrarte
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+          <div class="broker-card">
+            <div class="broker-top">
+              <div class="broker-logo" style="background:#84cc16">EQ</div>
+              <div>
+                <div class="broker-name">Equito</div>
+                <div class="broker-desc">Inmuebles tokenizados. Renta desde €100.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Real Estate</span>
+              <span class="broker-tag">Tokens</span>
+              <span class="broker-tag">Renta</span>
+            </div>
+            <a href="#" class="broker-link">
+              Registrarte
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── SCREEN 5: FIRE ─── -->
+  <div class="screen hidden" id="screen-fire">
+    <div class="calc-inner">
+      <div class="port-header">
+        <button class="btn-back" id="btn-back-fire">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M12 7H2M6 3L2 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Volver
+        </button>
+        <div class="port-name">CALCULADORA FIRE</div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">Parámetros</div>
+        <div class="ci-grid">
+          <div>
+            <div class="ci-field-header"><span class="ci-field-label">Gastos mensuales</span><span class="ci-field-val" id="fire-disp-gastos">€1.500</span></div>
+            <input type="range" id="fire-gastos" min="500" max="10000" step="100" value="1500">
+          </div>
+          <div>
+            <div class="ci-field-header"><span class="ci-field-label">Patrimonio actual</span><span class="ci-field-val" id="fire-disp-actual">€5.000</span></div>
+            <input type="range" id="fire-actual" min="0" max="200000" step="1000" value="5000">
+          </div>
+          <div>
+            <div class="ci-field-header"><span class="ci-field-label">Ahorro mensual</span><span class="ci-field-val" id="fire-disp-ahorro">€500</span></div>
+            <input type="range" id="fire-ahorro" min="0" max="5000" step="100" value="500">
+          </div>
+          <div>
+            <div class="ci-field-header"><span class="ci-field-label">Rentabilidad anual</span><span class="ci-field-val" id="fire-disp-rate">7%</span></div>
+            <input type="range" id="fire-rate" min="1" max="15" step="0.5" value="7">
+          </div>
+        </div>
+      </div>
+
+      <div class="calc-result-grid">
+        <div class="calc-res-card">
+          <div class="calc-res-label">Número FIRE</div>
+          <div class="calc-res-val accent" id="fire-r-numero">—</div>
+        </div>
+        <div class="calc-res-card">
+          <div class="calc-res-label">Años para FIRE</div>
+          <div class="calc-res-val neon" id="fire-r-anos">—</div>
+        </div>
+        <div class="calc-res-card">
+          <div class="calc-res-label">Progreso actual</div>
+          <div class="calc-res-val" id="fire-r-pct">—</div>
+          <div class="fire-progress-wrap"><div class="fire-progress-track"><div class="fire-progress-fill" id="fire-r-bar" style="width:0%"></div></div></div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">¿Qué es el número FIRE?</div>
+        <p style="font-size:13px;color:var(--muted);line-height:1.7">
+          La <strong style="color:var(--text)">regla del 4%</strong> dice que puedes retirar el 4% de tu patrimonio anualmente de forma sostenible. Así que necesitas acumular <strong style="color:var(--text)">25 veces tus gastos anuales</strong> para vivir de las rentas sin trabajar. Ese es tu número FIRE.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SCREEN 6: IMPUESTOS ─── -->
+  <div class="screen hidden" id="screen-impuestos">
+    <div class="calc-inner">
+      <div class="port-header">
+        <button class="btn-back" id="btn-back-impuestos">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M12 7H2M6 3L2 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Volver
+        </button>
+        <div class="port-name">IMPUESTOS ESPAÑA</div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">Tu operación</div>
+        <div class="ci-grid">
+          <div>
+            <div class="ci-field-header"><span class="ci-field-label">Precio de compra (€)</span><span class="ci-field-val" id="tax-disp-buy">€1.000</span></div>
+            <input type="range" id="tax-buy" min="100" max="100000" step="100" value="1000">
+          </div>
+          <div>
+            <div class="ci-field-header"><span class="ci-field-label">Precio de venta (€)</span><span class="ci-field-val" id="tax-disp-sell">€3.000</span></div>
+            <input type="range" id="tax-sell" min="100" max="100000" step="100" value="3000">
+          </div>
+        </div>
+      </div>
+
+      <div class="calc-result-grid">
+        <div class="calc-res-card">
+          <div class="calc-res-label">Ganancia bruta</div>
+          <div class="calc-res-val" id="tax-r-gross">—</div>
+        </div>
+        <div class="calc-res-card">
+          <div class="calc-res-label">Impuestos a pagar</div>
+          <div class="calc-res-val negative" id="tax-r-tax">—</div>
+        </div>
+        <div class="calc-res-card">
+          <div class="calc-res-label">Ganancia neta</div>
+          <div class="calc-res-val positive" id="tax-r-net">—</div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">Desglose por tramos (IRPF 2024)</div>
+        <div id="tax-brackets">
+          <div class="tax-bracket-row">
+            <span class="tax-bracket-range">Primeros €6.000</span>
+            <div class="tax-bar-wrap"><div class="tax-bar" id="tb-bar-0" style="width:0%"></div></div>
+            <span class="tax-bracket-rate">19%</span>
+            <span class="tax-bracket-amount" id="tb-amt-0">—</span>
+          </div>
+          <div class="tax-bracket-row">
+            <span class="tax-bracket-range">€6.001 – €50.000</span>
+            <div class="tax-bar-wrap"><div class="tax-bar" id="tb-bar-1" style="width:0%"></div></div>
+            <span class="tax-bracket-rate">21%</span>
+            <span class="tax-bracket-amount" id="tb-amt-1">—</span>
+          </div>
+          <div class="tax-bracket-row">
+            <span class="tax-bracket-range">€50.001 – €200.000</span>
+            <div class="tax-bar-wrap"><div class="tax-bar" id="tb-bar-2" style="width:0%"></div></div>
+            <span class="tax-bracket-rate">23%</span>
+            <span class="tax-bracket-amount" id="tb-amt-2">—</span>
+          </div>
+          <div class="tax-bracket-row">
+            <span class="tax-bracket-range">Más de €200.000</span>
+            <div class="tax-bar-wrap"><div class="tax-bar" id="tb-bar-3" style="width:0%"></div></div>
+            <span class="tax-bracket-rate">27%</span>
+            <span class="tax-bracket-amount" id="tb-amt-3">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <p style="font-size:12px;color:var(--muted);line-height:1.7">
+          ⚠️ <strong style="color:var(--text)">Regla de los 2 meses:</strong> si vendes con pérdidas y recompras el mismo activo en menos de 2 meses, Hacienda no te permite compensar esa pérdida. Planifica bien tus operaciones.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── SCREEN 7: LIBROS ─── -->
+  <div class="screen hidden" id="screen-libros">
+    <div class="calc-inner">
+
+      <div class="port-header">
+        <button class="btn-back" id="btn-back-libros">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M12 7H2M6 3L2 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Volver
+        </button>
+        <div class="port-name">LIBROS RECOMENDADOS</div>
+      </div>
+
+      <!-- FINANZAS -->
+      <div class="book-category-label">💰 Finanzas</div>
+      <div class="book-grid">
+        <div class="book-card">
+          <div class="book-cover" style="background:linear-gradient(135deg,#1e3a5f,#0f2040)">
+            <span class="book-initial">II</span>
+          </div>
+          <div class="book-info">
+            <div class="book-title">El Inversor Inteligente</div>
+            <div class="book-author">Benjamin Graham</div>
+            <div class="book-desc">La biblia del value investing. Imprescindible para entender cómo analizar empresas y controlar las emociones.</div>
+            <a href="https://www.amazon.es/s?k=El+inversor+inteligente+Graham&tag=mypersonalinv-21" target="_blank" class="book-btn">Ver en Amazon →</a>
+          </div>
+        </div>
+        <div class="book-card">
+          <div class="book-cover" style="background:linear-gradient(135deg,#3d1f00,#7a3f00)">
+            <span class="book-initial">PR</span>
+          </div>
+          <div class="book-info">
+            <div class="book-title">Padre Rico, Padre Pobre</div>
+            <div class="book-author">Robert Kiyosaki</div>
+            <div class="book-desc">El libro que cambia la mentalidad sobre el dinero. Activos vs pasivos, independencia financiera desde cero.</div>
+            <a href="https://www.amazon.es/s?k=Padre+Rico+Padre+Pobre&tag=mypersonalinv-21" target="_blank" class="book-btn">Ver en Amazon →</a>
+          </div>
+        </div>
+        <div class="book-card">
+          <div class="book-cover" style="background:linear-gradient(135deg,#003d1f,#005c2e)">
+            <span class="book-initial">PM</span>
+          </div>
+          <div class="book-info">
+            <div class="book-title">Psychology of Money</div>
+            <div class="book-author">Morgan Housel</div>
+            <div class="book-desc">Por qué la gente inteligente toma malas decisiones financieras. El libro más recomendado en 2023.</div>
+            <a href="https://www.amazon.es/s?k=Psychology+of+Money+Housel&tag=mypersonalinv-21" target="_blank" class="book-btn">Ver en Amazon →</a>
+          </div>
+        </div>
+        <div class="book-card">
+          <div class="book-cover" style="background:linear-gradient(135deg,#1a0040,#3a0080)">
+            <span class="book-initial">UB</span>
+          </div>
+          <div class="book-info">
+            <div class="book-title">Un Paso por Delante de Wall Street</div>
+            <div class="book-author">Peter Lynch</div>
+            <div class="book-desc">Cómo el inversor particular puede batir a los profesionales invirtiendo en lo que conoce.</div>
+            <a href="https://www.amazon.es/s?k=Un+paso+delante+Wall+Street+Lynch&tag=mypersonalinv-21" target="_blank" class="book-btn">Ver en Amazon →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- MENTALIDAD -->
+      <div class="book-category-label" style="margin-top:32px">🧠 Mentalidad</div>
+      <div class="book-grid">
+        <div class="book-card">
+          <div class="book-cover" style="background:linear-gradient(135deg,#402000,#804000)">
+            <span class="book-initial">HA</span>
+          </div>
+          <div class="book-info">
+            <div class="book-title">Hábitos Atómicos</div>
+            <div class="book-author">James Clear</div>
+            <div class="book-desc">El sistema para construir buenos hábitos y eliminar los malos. Aplicable directamente a la disciplina inversora.</div>
+            <a href="https://www.amazon.es/s?k=Habitos+Atomicos+James+Clear&tag=mypersonalinv-21" target="_blank" class="book-btn">Ver en Amazon →</a>
+          </div>
+        </div>
+        <div class="book-card">
+          <div class="book-cover" style="background:linear-gradient(135deg,#1a1a00,#3d3d00)">
+            <span class="book-initial">PH</span>
+          </div>
+          <div class="book-info">
+            <div class="book-title">Piense y Hágase Rico</div>
+            <div class="book-author">Napoleon Hill</div>
+            <div class="book-desc">El clásico sobre mentalidad ganadora. Estudiado durante décadas por emprendedores e inversores de todo el mundo.</div>
+            <a href="https://www.amazon.es/s?k=Piense+hagase+rico+Napoleon+Hill&tag=mypersonalinv-21" target="_blank" class="book-btn">Ver en Amazon →</a>
+          </div>
+        </div>
+        <div class="book-card">
+          <div class="book-cover" style="background:linear-gradient(135deg,#001a33,#003366)">
+            <span class="book-initial">MB</span>
+          </div>
+          <div class="book-info">
+            <div class="book-title">El Hombre Más Rico de Babilonia</div>
+            <div class="book-author">George S. Clason</div>
+            <div class="book-desc">Principios atemporales de ahorro e inversión a través de parábolas. Lectura rápida, impacto duradero.</div>
+            <a href="https://www.amazon.es/s?k=El+hombre+mas+rico+de+Babilonia&tag=mypersonalinv-21" target="_blank" class="book-btn">Ver en Amazon →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- NEGOCIO -->
+      <div class="book-category-label" style="margin-top:32px">🚀 Negocio</div>
+      <div class="book-grid">
+        <div class="book-card">
+          <div class="book-cover" style="background:linear-gradient(135deg,#001f3d,#003d7a)">
+            <span class="book-initial">01</span>
+          </div>
+          <div class="book-info">
+            <div class="book-title">De Cero a Uno</div>
+            <div class="book-author">Peter Thiel</div>
+            <div class="book-desc">Cómo crear empresas que construyen el futuro. Lectura obligatoria para cualquier emprendedor o inversor en startups.</div>
+            <a href="https://www.amazon.es/s?k=De+cero+a+uno+Peter+Thiel&tag=mypersonalinv-21" target="_blank" class="book-btn">Ver en Amazon →</a>
+          </div>
+        </div>
+        <div class="book-card">
+          <div class="book-cover" style="background:linear-gradient(135deg,#0d2600,#1a4d00)">
+            <span class="book-initial">LS</span>
+          </div>
+          <div class="book-info">
+            <div class="book-title">El Método Lean Startup</div>
+            <div class="book-author">Eric Ries</div>
+            <div class="book-desc">Valida tu idea antes de invertir tiempo y dinero. El método que usan las startups más exitosas del mundo.</div>
+            <a href="https://www.amazon.es/s?k=Lean+Startup+Eric+Ries&tag=mypersonalinv-21" target="_blank" class="book-btn">Ver en Amazon →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Disclaimer afiliados -->
+      <div style="margin-top:32px;padding:16px 20px;border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--muted);line-height:1.6">
+        Como afiliado de Amazon, MyPersonalInvest obtiene ingresos por compras adscritas que cumplen los requisitos aplicables, sin coste extra para el usuario.
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── SCREEN: SOBRE MÍ ─── -->
+  <div class="screen hidden" id="screen-about">
+    <div class="calc-inner">
+
+      <div class="port-header">
+        <button class="btn-back" id="btn-back-about">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M12 7H2M6 3L2 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Volver
+        </button>
+        <div class="port-name">SOBRE MÍ</div>
+      </div>
+
+      <!-- Hero: foto + texto -->
+      <div class="about-hero">
+        <div class="photo-placeholder">
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" opacity="0.4">
+            <rect x="2" y="6" width="28" height="22" rx="3" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="16" cy="17" r="6" stroke="currentColor" stroke-width="1.5"/>
+            <circle cx="16" cy="17" r="2.5" fill="currentColor" opacity="0.4"/>
+            <path d="M11 6l2-3h6l2 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="photo-label">Tu foto aquí</span>
+        </div>
+        <div class="about-hero-text">
+          <div class="about-name">Miguel</div>
+          <div class="about-role">Emprendedor · Inversor · UME</div>
+          <div class="about-tags">
+            <span class="about-tag">🇪🇸 España</span>
+            <span class="about-tag">📈 Inversión</span>
+            <span class="about-tag">🚀 Startups</span>
+            <span class="about-tag">🎯 FIRE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bio -->
+      <div class="section-card">
+        <div class="section-title">Quién soy</div>
+        <p class="about-para">
+          Emprendedor español con perfil inversor. Trabajo en el ámbito de la UME mientras construyo proyectos paralelos orientados a la educación financiera, la tecnología y la creación de activos propios.
+        </p>
+        <p class="about-para">
+          Mi objetivo a largo plazo es la independencia financiera. No creo en los atajos ni en los consejos de compra/venta gratuitos. Mi filosofía: <span class="about-highlight">aprender primero, decidir después</span>.
+        </p>
+      </div>
+
+      <!-- Filosofía / Objetivos — slide -->
+      <div class="section-card">
+        <div class="slide-tabs">
+          <button class="slide-tab active" data-slide="filosofia">Filosofía</button>
+          <button class="slide-tab" data-slide="objetivos">Objetivos</button>
+        </div>
+
+        <div class="slide-panel" id="slide-filosofia">
+          <div class="about-quote">
+            "El mejor inversor no es el que más sabe de análisis técnico. Es el que mejor controla sus emociones y tiene un plan."
+          </div>
+        </div>
+
+        <div class="slide-panel hidden" id="slide-objetivos">
+          <div class="objetivo-item">
+            <div class="objetivo-num">01</div>
+            <div class="objetivo-body">
+              <div class="objetivo-title">💰 Cartera de dividendos</div>
+              <div class="objetivo-desc">Construir un flujo de renta pasiva sostenible que cubra gastos fijos mes a mes.</div>
+            </div>
+          </div>
+          <div class="objetivo-item">
+            <div class="objetivo-num">02</div>
+            <div class="objetivo-body">
+              <div class="objetivo-title">🎯 Libertad financiera</div>
+              <div class="objetivo-desc">Alcanzar el número FIRE: vivir de las rentas sin depender de un salario.</div>
+            </div>
+          </div>
+          <div class="objetivo-item" style="border-bottom:none">
+            <div class="objetivo-num">03</div>
+            <div class="objetivo-body">
+              <div class="objetivo-title">🏦 Tener un buen fondo</div>
+              <div class="objetivo-desc">Consolidar un patrimonio sólido y diversificado como base de todo lo demás.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── SCREEN: MIS ACTIVOS ─── -->
+  <div class="screen hidden" id="screen-assets">
+    <div class="calc-inner">
+
+      <div class="port-header">
+        <button class="btn-back" id="btn-back-assets">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M12 7H2M6 3L2 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Volver
+        </button>
+        <div class="port-name">MIS ACTIVOS</div>
+      </div>
+
+      <!-- Upload zone -->
+      <div class="section-card">
+        <div class="section-title">Importar archivo</div>
+        <div class="upload-zone" id="upload-zone">
+          <div class="vortex-disc"></div>
+          <div class="vortex-rings">
+            <span class="ring r1"></span>
+            <span class="ring r2"></span>
+            <span class="ring r3"></span>
+          </div>
+          <div class="upload-content">
+            <svg width="30" height="30" viewBox="0 0 30 30" fill="none" opacity="0.5">
+              <path d="M15 4v15M9 12l6-6 6 6" stroke="#3d7eff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M5 21v3a2 2 0 002 2h16a2 2 0 002-2v-3" stroke="#3d7eff" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+            <div class="upload-text">Arrastra un archivo o haz clic para subir</div>
+            <div class="upload-sub">CSV o Excel (.xlsx) · columnas: ticker, broker, valor</div>
+          </div>
+          <input type="file" id="upload-input" accept=".csv,.xlsx,.xls" hidden>
+        </div>
+        <div id="upload-status"></div>
+      </div>
+
+      <!-- Add manual -->
+      <div class="section-card">
+        <div class="section-title">Añadir activo manualmente</div>
+        <p class="asset-hint">El campo broker es libre — puedes poner el nombre que tú quieras (ej: "RULE" para tu cuenta de Revolut) y luego identificarlo como prefieras.</p>
+        <div class="add-asset-form">
+          <input type="text" id="new-ticker" class="asset-input" placeholder="Ticker (ej: ASTS)">
+          <input type="text" id="new-broker" class="asset-input" list="broker-suggestions" placeholder="Broker (ej: Revolut, RULE...)">
+          <input type="number" id="new-value" class="asset-input" placeholder="Valor (€)">
+          <button id="btn-add-asset" class="add-asset-btn">+ Añadir</button>
+        </div>
+        <datalist id="broker-suggestions"></datalist>
+      </div>
+
+      <!-- Evolución -->
+      <div class="section-card">
+        <div class="section-title">Evolución del patrimonio</div>
+        <button class="add-asset-btn" id="btn-save-snapshot" style="margin-bottom:16px">📸 Guardar snapshot de hoy</button>
+        <div id="evolution-wrap" style="display:none">
+          <div class="ci-chart-wrap"><canvas id="evolution-chart"></canvas></div>
+        </div>
+        <div id="evolution-empty" class="assets-empty">
+          Guarda tu primer snapshot para empezar a ver la evolución en el tiempo.
+        </div>
+      </div>
+
+      <!-- Grouped by broker -->
+      <div id="assets-container"></div>
+
+    </div>
+  </div>
+
+  <script>
+    /* ── SUPABASE ── */
+    const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
+    const sb = supabase.createClient(SB_URL, SB_KEY);
+
+    /* ── NAVIGATION ── */
+    const screens = {
+      intro:      document.getElementById('screen-intro'),
+      auth:       document.getElementById('screen-auth'),
+      dashboard:  document.getElementById('screen-dashboard'),
+      portfolio:  document.getElementById('screen-portfolio'),
+      brokers:    document.getElementById('screen-brokers'),
+      fire:       document.getElementById('screen-fire'),
+      impuestos:  document.getElementById('screen-impuestos'),
+      libros:     document.getElementById('screen-libros'),
+      about:      document.getElementById('screen-about'),
+      assets:     document.getElementById('screen-assets'),
+    };
+    function goTo(target) {
+      Object.keys(screens).forEach(key => {
+        const el = screens[key];
+        if (key === target) {
+          el.classList.remove('hidden', 'out');
+        } else if (!el.classList.contains('hidden')) {
+          el.classList.add('out');
+          setTimeout(() => el.classList.add('hidden'), 500);
+        }
+      });
+    }
+
+    /* ── AUTH FLOW ── */
+    document.getElementById('btn-continue').addEventListener('click', async () => {
+      const { data } = await sb.auth.getSession();
+      if (data.session) goTo('dashboard');
+      else goTo('auth');
+    });
+
+    let authMode = 'login';
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        authMode = tab.dataset.auth;
+        document.getElementById('auth-submit-label').textContent = authMode === 'login' ? 'Entrar' : 'Crear cuenta';
+        document.getElementById('auth-msg').innerHTML = '';
+      });
+    });
+
+    function showAuthMsg(msg, ok) {
+      document.getElementById('auth-msg').innerHTML = '<div class="auth-msg ' + (ok ? 'ok' : 'err') + '">' + msg + '</div>';
+    }
+
+    document.getElementById('btn-auth-submit').addEventListener('click', async () => {
+      const email = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+      if (!email || !password) { showAuthMsg('Rellena email y contraseña.', false); return; }
+
+      if (authMode === 'login') {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) { showAuthMsg(error.message, false); return; }
+        goTo('dashboard');
+      } else {
+        const { error } = await sb.auth.signUp({ email, password });
+        if (error) { showAuthMsg(error.message, false); return; }
+        showAuthMsg('Cuenta creada. Si pide confirmación, revisa tu email. Si no, ya puedes entrar.', true);
+        const { data } = await sb.auth.getSession();
+        if (data.session) goTo('dashboard');
+      }
+    });
+
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      await sb.auth.signOut();
+      goTo('intro');
+    });
+
+
+    document.getElementById('card-portfolio').addEventListener('click',         () => goTo('portfolio'));
+    document.getElementById('card-brokers').addEventListener('click',           () => goTo('brokers'));
+    document.getElementById('card-fire').addEventListener('click',              () => goTo('fire'));
+    document.getElementById('card-impuestos').addEventListener('click',         () => goTo('impuestos'));
+    document.getElementById('btn-back').addEventListener('click',               () => goTo('dashboard'));
+    document.getElementById('btn-back-brokers').addEventListener('click',       () => goTo('dashboard'));
+    document.getElementById('card-about').addEventListener('click',             () => goTo('about'));
+    document.getElementById('btn-back-about').addEventListener('click',         () => goTo('portfolio'));
+    document.getElementById('card-assets').addEventListener('click',            () => goTo('assets'));
+    document.getElementById('btn-back-assets').addEventListener('click',        () => goTo('portfolio'));
+    document.getElementById('btn-back-libros').addEventListener('click',        () => goTo('portfolio'));
+    document.getElementById('btn-back-impuestos').addEventListener('click',     () => goTo('dashboard'));
+
+    /* ── FIRE CALCULATOR ── */
+    function calcFIRE() {
+      const gastos = +document.getElementById('fire-gastos').value;
+      const actual = +document.getElementById('fire-actual').value;
+      const ahorro = +document.getElementById('fire-ahorro').value;
+      const rate   = +document.getElementById('fire-rate').value / 100;
+      const r      = rate / 12;
+
+      document.getElementById('fire-disp-gastos').textContent = fmtEur(gastos);
+      document.getElementById('fire-disp-actual').textContent = fmtEur(actual);
+      document.getElementById('fire-disp-ahorro').textContent = fmtEur(ahorro);
+      document.getElementById('fire-disp-rate').textContent   = (+document.getElementById('fire-rate').value) + '%';
+
+      const fireNum = gastos * 12 * 25;
+      const pct     = Math.min((actual / fireNum) * 100, 100);
+
+      let anos = 0;
+      if (actual < fireNum) {
+        let pat = actual;
+        while (pat < fireNum && anos < 200) {
+          pat = pat * (1 + r) + ahorro;
+          anos++;
+        }
+        anos = (anos / 12).toFixed(1);
+      } else {
+        anos = '0';
+      }
+
+      document.getElementById('fire-r-numero').textContent = fmtEur(fireNum);
+      document.getElementById('fire-r-anos').textContent   = anos === '0' ? '¡Ya!' : anos + ' años';
+      document.getElementById('fire-r-pct').textContent    = pct.toFixed(1) + '%';
+      document.getElementById('fire-r-bar').style.width    = pct + '%';
+    }
+    ['fire-gastos','fire-actual','fire-ahorro','fire-rate'].forEach(id =>
+      document.getElementById(id).addEventListener('input', calcFIRE)
+    );
+    calcFIRE();
+
+    /* ── TAX CALCULATOR (SPAIN) ── */
+    function calcTax() {
+      const buy  = +document.getElementById('tax-buy').value;
+      const sell = +document.getElementById('tax-sell').value;
+
+      document.getElementById('tax-disp-buy').textContent  = fmtEur(buy);
+      document.getElementById('tax-disp-sell').textContent = fmtEur(sell);
+
+      const gain = sell - buy;
+      const brackets = [
+        { limit: 6000,   rate: 0.19 },
+        { limit: 50000,  rate: 0.21 },
+        { limit: 200000, rate: 0.23 },
+        { limit: Infinity, rate: 0.27 },
+      ];
+
+      let remaining = Math.max(gain, 0);
+      let totalTax  = 0;
+      const amounts = [];
+      let prev = 0;
+
+      brackets.forEach((b, i) => {
+        const span     = b.limit - prev;
+        const taxable  = Math.min(remaining, span);
+        const taxAmt   = taxable * b.rate;
+        totalTax      += taxAmt;
+        remaining     -= taxable;
+        amounts.push(taxAmt);
+        prev = b.limit === Infinity ? prev : b.limit;
+      });
+
+      const maxAmt = Math.max(...amounts, 1);
+      amounts.forEach((amt, i) => {
+        const el = document.getElementById('tb-amt-' + i);
+        const bar = document.getElementById('tb-bar-' + i);
+        if (el)  el.textContent = amt > 0 ? fmtEur(amt) : '—';
+        if (bar) bar.style.width = ((amt / maxAmt) * 100) + '%';
+      });
+
+      const grossEl = document.getElementById('tax-r-gross');
+      const taxEl   = document.getElementById('tax-r-tax');
+      const netEl   = document.getElementById('tax-r-net');
+
+      if (gain <= 0) {
+        grossEl.textContent = fmtEur(gain); grossEl.className = 'calc-res-val negative';
+        taxEl.textContent   = '€0';         taxEl.className   = 'calc-res-val';
+        netEl.textContent   = fmtEur(gain); netEl.className   = 'calc-res-val negative';
+      } else {
+        grossEl.textContent = fmtEur(gain);            grossEl.className = 'calc-res-val positive';
+        taxEl.textContent   = '−' + fmtEur(totalTax);  taxEl.className   = 'calc-res-val negative';
+        netEl.textContent   = fmtEur(gain - totalTax); netEl.className   = 'calc-res-val positive';
+      }
+    }
+    ['tax-buy','tax-sell'].forEach(id =>
+      document.getElementById(id).addEventListener('input', calcTax)
+    );
+    calcTax();
+
+    /* ── EDITABLE METRICS ── */
+    function fmtEur(n) {
+      return '€' + Math.round(n).toLocaleString('es-ES');
+    }
+
+    function updatePnL() {
+      const total    = parseFloat(localStorage.getItem('be_total') || '');
+      const invested = parseFloat(localStorage.getItem('be_invested') || '');
+      const elT = document.getElementById('mv-total');
+      const elI = document.getElementById('mv-invested');
+      const elP = document.getElementById('mv-pnl');
+
+      if (elT) elT.textContent = isNaN(total)    ? '—' : fmtEur(total);
+      if (elI) elI.textContent = isNaN(invested) ? '—' : fmtEur(invested);
+
+      if (elP) {
+        if (!isNaN(total) && !isNaN(invested)) {
+          const diff = total - invested;
+          const pct  = ((diff / invested) * 100).toFixed(1);
+          elP.textContent = (diff >= 0 ? '+' : '') + fmtEur(diff) + ' (' + pct + '%)';
+          elP.className   = 'metric-value ' + (diff >= 0 ? 'positive' : 'negative');
+        } else {
+          elP.textContent = '—';
+          elP.className   = 'metric-value';
+        }
+      }
+    }
+
+    function makeEditable(cardId, valueId, storageKey, placeholder) {
+      const card = document.getElementById(cardId);
+      if (!card) return;
+      card.addEventListener('click', () => {
+        if (card.querySelector('.metric-input')) return;
+        const current = localStorage.getItem(storageKey) || '';
+        const input = document.createElement('input');
+        input.type        = 'number';
+        input.className   = 'metric-input';
+        input.placeholder = placeholder;
+        input.value       = current;
+        input.min         = '0';
+        const valEl = document.getElementById(valueId);
+        valEl.replaceWith(input);
+        input.focus(); input.select();
+
+        function save() {
+          const n = parseFloat(input.value);
+          if (!isNaN(n) && n >= 0) localStorage.setItem(storageKey, n);
+          else localStorage.removeItem(storageKey);
+          const newVal = document.createElement('div');
+          newVal.className = 'metric-value';
+          newVal.id        = valueId;
+          input.replaceWith(newVal);
+          updatePnL();
+        }
+        input.addEventListener('blur', save);
+        input.addEventListener('keydown', e => {
+          if (e.key === 'Enter')  { input.blur(); }
+          if (e.key === 'Escape') { input.value = ''; input.blur(); }
+        });
+      });
+    }
+
+    makeEditable('mc-total',    'mv-total',    'be_total',    'Valor actual (€)');
+    makeEditable('mc-invested', 'mv-invested', 'be_invested', 'Capital invertido (€)');
+    updatePnL();
+
+    /* ── MIS ACTIVOS (Supabase) ── */
+    const BROKERS_LIST = [
+      'Revolut', 'MyInvestor', 'Interactive Brokers', 'Bybit',
+      'CoinDepo', 'Equito', 'IG', 'Sin clasificar'
+    ];
+
+    async function getUserId() {
+      const { data } = await sb.auth.getUser();
+      return data.user ? data.user.id : null;
+    }
+
+    async function loadAssets() {
+      const { data, error } = await sb.from('assets').select('*').order('created_at', { ascending: true });
+      if (error) { console.error(error); return []; }
+      return data || [];
+    }
+
+    async function saveSnapshot(total) {
+      const userId = await getUserId();
+      if (!userId) return;
+      await sb.from('portfolio_snapshots').insert({ user_id: userId, total_value: total });
+    }
+
+    function populateBrokerSuggestions() {
+      const dl = document.getElementById('broker-suggestions');
+      dl.innerHTML = '';
+      BROKERS_LIST.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b;
+        dl.appendChild(opt);
+      });
+    }
+
+    async function renderAssets() {
+      const container = document.getElementById('assets-container');
+      const assets = await loadAssets();
+      container.innerHTML = '';
+
+      if (assets.length === 0) {
+        const exampleWrap = document.createElement('div');
+        exampleWrap.innerHTML =
+          '<div class="example-banner">' +
+            '<span>👁️ Esto es un <strong>ejemplo visual</strong> de cómo se verá. Importa un archivo o añade un activo para empezar.</span>' +
+          '</div>' +
+          '<div class="broker-group example-group">' +
+            '<div class="broker-group-header">' +
+              '<span class="broker-group-name">RULE <span class="example-tag">ejemplo</span></span>' +
+              '<span class="broker-group-total">€120</span>' +
+            '</div>' +
+            '<div class="asset-row">' +
+              '<input value="ASTS" disabled>' +
+              '<input value="AST SpaceMobile · cuenta Revolut" disabled>' +
+              '<input value="RULE" disabled>' +
+              '<input value="120" disabled class="asset-value-input">' +
+              '<button class="asset-delete" disabled style="opacity:0.3"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>' +
+            '</div>' +
+          '</div>';
+        container.appendChild(exampleWrap);
+        return;
+      }
+
+      const grouped = {};
+      assets.forEach(a => {
+        const broker = a.broker || 'Sin clasificar';
+        if (!grouped[broker]) grouped[broker] = [];
+        grouped[broker].push(a);
+      });
+
+      Object.keys(grouped).sort().forEach(broker => {
+        const items = grouped[broker];
+        const total = items.reduce((s, a) => s + (parseFloat(a.value) || 0), 0);
+
+        const group = document.createElement('div');
+        group.className = 'broker-group';
+
+        const header = document.createElement('div');
+        header.className = 'broker-group-header';
+        header.innerHTML =
+          '<span class="broker-group-name">' + broker + '</span>' +
+          '<span class="broker-group-total">' + fmtEur(total) + '</span>';
+        group.appendChild(header);
+
+        items.forEach(a => {
+          const row = document.createElement('div');
+          row.className = 'asset-row';
+
+          const tickerInput = document.createElement('input');
+          tickerInput.className = 'asset-ticker-input';
+          tickerInput.value = a.ticker || '';
+          tickerInput.placeholder = 'Ticker';
+          tickerInput.addEventListener('blur', async () => {
+            await sb.from('assets').update({ ticker: tickerInput.value.toUpperCase() }).eq('id', a.id);
+            renderAssets();
+          });
+
+          const nameInput = document.createElement('input');
+          nameInput.value = a.name || '';
+          nameInput.placeholder = 'Nombre / nota';
+          nameInput.addEventListener('blur', async () => {
+            await sb.from('assets').update({ name: nameInput.value }).eq('id', a.id);
+            renderAssets();
+          });
+
+          const brokerInput = document.createElement('input');
+          brokerInput.value = broker;
+          brokerInput.setAttribute('list', 'broker-suggestions');
+          brokerInput.placeholder = 'Broker';
+          brokerInput.addEventListener('blur', async () => {
+            await sb.from('assets').update({ broker: brokerInput.value.trim() || 'Sin clasificar' }).eq('id', a.id);
+            renderAssets();
+          });
+
+          const valueInput = document.createElement('input');
+          valueInput.className = 'asset-value-input';
+          valueInput.type = 'number';
+          valueInput.value = a.value || '';
+          valueInput.placeholder = '€';
+          valueInput.addEventListener('blur', async () => {
+            await sb.from('assets').update({ value: parseFloat(valueInput.value) || 0 }).eq('id', a.id);
+            renderAssets();
+          });
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'asset-delete';
+          delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
+          delBtn.addEventListener('click', async () => {
+            await sb.from('assets').delete().eq('id', a.id);
+            renderAssets();
+          });
+
+          row.appendChild(tickerInput);
+          row.appendChild(nameInput);
+          row.appendChild(brokerInput);
+          row.appendChild(valueInput);
+          row.appendChild(delBtn);
+          group.appendChild(row);
+        });
+
+        container.appendChild(group);
+      });
+
+      // Actualiza gráfica de evolución cada vez que se renderiza
+      renderEvolutionChart();
+    }
+
+    async function addAsset(ticker, broker, value) {
+      const userId = await getUserId();
+      if (!userId) return;
+      await sb.from('assets').insert({
+        user_id: userId,
+        ticker: (ticker || '').toUpperCase(),
+        name: '',
+        broker: broker || 'Sin clasificar',
+        value: parseFloat(value) || 0,
+      });
+      renderAssets();
+    }
+
+    /* ── EVOLUCIÓN (snapshots) ── */
+    let evolutionChart = null;
+
+    async function renderEvolutionChart() {
+      const canvas = document.getElementById('evolution-chart');
+      if (!canvas) return;
+
+      const { data: snapshots } = await sb
+        .from('portfolio_snapshots')
+        .select('total_value, created_at')
+        .order('created_at', { ascending: true });
+
+      const wrap = document.getElementById('evolution-wrap');
+      const empty = document.getElementById('evolution-empty');
+
+      if (!snapshots || snapshots.length === 0) {
+        wrap.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+      }
+      wrap.style.display = 'block';
+      empty.style.display = 'none';
+
+      const labels = snapshots.map(s => new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }));
+      const values = snapshots.map(s => s.total_value);
+
+      if (evolutionChart) {
+        evolutionChart.data.labels = labels;
+        evolutionChart.data.datasets[0].data = values;
+        evolutionChart.update('none');
+        return;
+      }
+
+      evolutionChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Valor total',
+            data: values,
+            borderColor: '#00ff6a',
+            backgroundColor: 'rgba(0,255,106,0.08)',
+            borderWidth: 2, fill: true, tension: 0.3,
+            pointRadius: 3, pointBackgroundColor: '#00ff6a',
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0c1018', borderColor: '#1a2235', borderWidth: 1,
+              titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 12,
+              callbacks: { label: c => '  ' + fmtEur(c.raw) }
+            }
+          },
+          scales: {
+            x: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 } } },
+            y: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 },
+              callback: v => v >= 1000 ? '€' + (v/1000).toFixed(1) + 'k' : '€' + v } }
+          }
+        }
+      });
+    }
+
+    async function handleSaveSnapshot() {
+      const assets = await loadAssets();
+      const total = assets.reduce((s, a) => s + (parseFloat(a.value) || 0), 0);
+      await saveSnapshot(total);
+      renderEvolutionChart();
+      const btn = document.getElementById('btn-save-snapshot');
+      const original = btn.textContent;
+      btn.textContent = '✓ Guardado';
+      setTimeout(() => { btn.textContent = original; }, 1500);
+    }
+
+    function initAssetsScreen() {
+      populateBrokerSuggestions();
+
+      document.getElementById('btn-add-asset').addEventListener('click', () => {
+        const t = document.getElementById('new-ticker').value.trim();
+        const b = document.getElementById('new-broker').value.trim() || 'Sin clasificar';
+        const v = document.getElementById('new-value').value;
+        if (!t) return;
+        addAsset(t, b, v);
+        document.getElementById('new-ticker').value = '';
+        document.getElementById('new-broker').value = '';
+        document.getElementById('new-value').value = '';
+      });
+
+      document.getElementById('btn-save-snapshot').addEventListener('click', handleSaveSnapshot);
+
+      const zone  = document.getElementById('upload-zone');
+      const input = document.getElementById('upload-input');
+      const status = document.getElementById('upload-status');
+
+      zone.addEventListener('click', () => input.click());
+      zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+      zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+      zone.addEventListener('drop', e => {
+        e.preventDefault(); zone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) triggerAbsorb(e.dataTransfer.files[0]);
+      });
+      input.addEventListener('change', () => { if (input.files.length) triggerAbsorb(input.files[0]); });
+
+      function triggerAbsorb(file) {
+        zone.classList.add('absorbing');
+        handleFile(file);
+        setTimeout(() => zone.classList.remove('absorbing'), 600);
+      }
+
+      function showStatus(msg, ok) {
+        status.innerHTML = '<div class="upload-msg ' + (ok ? 'ok' : 'err') + '">' + msg + '</div>';
+      }
+
+      function findKey(row, candidates) {
+        const keys = Object.keys(row);
+        for (const c of candidates) {
+          const k = keys.find(k => k.toLowerCase().trim() === c);
+          if (k) return k;
+        }
+        return null;
+      }
+
+      async function importRows(rows) {
+        if (!rows.length) { showStatus('El archivo está vacío o no se pudo leer.', false); return; }
+        const sample = rows[0];
+        const tickerKey = findKey(sample, ['ticker','symbol','simbolo','activo','asset']);
+        const brokerKey = findKey(sample, ['broker','exchange','plataforma']);
+        const valueKey  = findKey(sample, ['value','valor','amount','importe','total']);
+
+        if (!tickerKey) {
+          showStatus('No se encontró una columna de ticker/símbolo. Revisa las cabeceras del archivo.', false);
+          return;
+        }
+
+        const userId = await getUserId();
+        if (!userId) { showStatus('Tienes que iniciar sesión.', false); return; }
+
+        const toInsert = [];
+        rows.forEach(r => {
+          const ticker = (r[tickerKey] || '').toString().trim();
+          if (!ticker) return;
+          const broker = brokerKey ? (r[brokerKey] || '').toString().trim() : '';
+          const value  = valueKey ? parseFloat(r[valueKey]) : 0;
+          toInsert.push({
+            user_id: userId, ticker: ticker.toUpperCase(), name: '',
+            broker: broker || 'Sin clasificar',
+            value: isNaN(value) ? 0 : value,
+          });
+        });
+
+        if (toInsert.length) await sb.from('assets').insert(toInsert);
+        renderAssets();
+        showStatus('Importados ' + toInsert.length + ' activos correctamente.', true);
+      }
+
+      function handleFile(file) {
+        const name = file.name.toLowerCase();
+        if (name.endsWith('.csv')) {
+          Papa.parse(file, {
+            header: true, skipEmptyLines: true,
+            complete: res => importRows(res.data),
+            error: () => showStatus('No se pudo leer el CSV.', false),
+          });
+        } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
+          const reader = new FileReader();
+          reader.onload = e => {
+            try {
+              const wb = XLSX.read(e.target.result, { type: 'array' });
+              const sheet = wb.Sheets[wb.SheetNames[0]];
+              const rows = XLSX.utils.sheet_to_json(sheet);
+              importRows(rows);
+            } catch { showStatus('No se pudo leer el archivo Excel.', false); }
+          };
+          reader.readAsArrayBuffer(file);
+        } else {
+          showStatus('Formato no soportado. Usa CSV o Excel (.xlsx).', false);
+        }
+      }
+
+      renderAssets();
+    }
+
+
+    /* ── TABS (portfolio positions) ── */
+    document.querySelectorAll('.tab-btn[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.tab;
+        btn.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('panel-' + target).classList.remove('active');
+        document.querySelectorAll('[id^="panel-"]').forEach(p => p.classList.remove('active'));
+        document.getElementById('panel-' + target).classList.add('active');
+      });
+    });
+
+    /* ── SLIDE TABS (sobre mí) ── */
+    document.querySelectorAll('.slide-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.closest('.section-card').querySelectorAll('.slide-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        btn.closest('.section-card').querySelectorAll('.slide-panel').forEach(p => p.classList.add('hidden'));
+        document.getElementById('slide-' + btn.dataset.slide).classList.remove('hidden');
+      });
+    });
+    document.querySelectorAll('.tab-btn[data-btab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.closest('.tab-bar').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('[id^="bpanel-"]').forEach(p => p.classList.remove('active'));
+        document.getElementById('bpanel-' + btn.dataset.btab).classList.add('active');
+      });
+    });
+
+    /* ── COMPOUND INTEREST ── */
+    function fmt(n) {
+      return '€' + Math.round(n).toLocaleString('es-ES');
+    }
+
+    let ciChart = null;
+
+    function calcCI() {
+      const capital = +document.getElementById('sl-capital').value;
+      const monthly = +document.getElementById('sl-monthly').value;
+      const rateAnn = +document.getElementById('sl-rate').value;
+      const years   = +document.getElementById('sl-years').value;
+      const r = rateAnn / 100 / 12;
+
+      // Update display values
+      document.getElementById('disp-capital').textContent = fmt(capital);
+      document.getElementById('disp-monthly').textContent = '€' + monthly;
+      document.getElementById('disp-rate').textContent    = rateAnn + '%';
+      document.getElementById('disp-years').textContent   = years + ' año' + (years === 1 ? '' : 's');
+
+      const labels = [];
+      const dataInvested = [];
+      const dataTotal = [];
+
+      for (let y = 0; y <= years; y++) {
+        const n = y * 12;
+        const invested = capital + monthly * n;
+        const total = r > 0
+          ? capital * Math.pow(1 + r, n) + monthly * (Math.pow(1 + r, n) - 1) / r
+          : capital + monthly * n;
+
+        labels.push(y === 0 ? 'Hoy' : 'Año ' + y);
+        dataInvested.push(Math.round(invested));
+        dataTotal.push(Math.round(total));
+      }
+
+      const finalTotal    = dataTotal[dataTotal.length - 1];
+      const finalInvested = dataInvested[dataInvested.length - 1];
+      const profit        = finalTotal - finalInvested;
+      const mult          = (finalTotal / finalInvested).toFixed(1);
+
+      document.getElementById('r-invested').textContent = fmt(finalInvested);
+      document.getElementById('r-final').textContent    = fmt(finalTotal);
+      document.getElementById('r-profit').textContent   = fmt(profit);
+      document.getElementById('r-mult').textContent     = mult + 'x';
+
+      if (ciChart) {
+        ciChart.data.labels = labels;
+        ciChart.data.datasets[0].data = dataInvested;
+        ciChart.data.datasets[1].data = dataTotal;
+        ciChart.update('none');
+      }
+    }
+
+    function initChart() {
+      const ctx = document.getElementById('ci-chart').getContext('2d');
+      ciChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'Total invertido',
+              data: [],
+              borderColor: '#2a3a55',
+              backgroundColor: 'rgba(26,34,53,0.5)',
+              borderWidth: 1.5,
+              fill: true,
+              tension: 0.35,
+              pointRadius: 0,
+            },
+            {
+              label: 'Con interés compuesto',
+              data: [],
+              borderColor: '#3d7eff',
+              backgroundColor: 'rgba(61,127,255,0.08)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.35,
+              pointRadius: 0,
+              pointHoverRadius: 5,
+              pointHoverBackgroundColor: '#3d7eff',
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: {
+              display: true, position: 'top', align: 'end',
+              labels: {
+                color: '#3a4d6a', font: { size: 11, family: 'Inter' },
+                usePointStyle: true, pointStyleWidth: 8, boxHeight: 6, padding: 16,
+              }
+            },
+            tooltip: {
+              backgroundColor: '#0c1018', borderColor: '#1a2235', borderWidth: 1,
+              titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 12,
+              callbacks: {
+                label: ctx => '  ' + ctx.dataset.label + ':  ' + fmt(ctx.raw)
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: '#111827' },
+              ticks: { color: '#3a4d6a', font: { size: 11, family: 'Inter' }, maxTicksLimit: 9 }
+            },
+            y: {
+              grid: { color: '#111827' },
+              ticks: {
+                color: '#3a4d6a', font: { size: 11, family: 'Inter' },
+                callback: v => v >= 1000000 ? '€' + (v/1000000).toFixed(1) + 'M'
+                              : v >= 1000    ? '€' + (v/1000).toFixed(0) + 'k'
+                              : '€' + v
+              }
+            }
+          }
+        }
+      });
+
+      ['sl-capital','sl-monthly','sl-rate','sl-years'].forEach(id => {
+        document.getElementById(id).addEventListener('input', calcCI);
+      });
+
+      calcCI();
+    }
+
+    window.addEventListener('load', () => {
+      initAllocChart();
+      initChart();
+      initRentBadges();
+      initAssetsScreen();
+    });
+
+    /* ── RENTABILIDAD BADGES ── */
+    function applyRent(badge, val) {
+      badge.textContent = val || '—';
+      const n = parseFloat((val || '').replace('%','').replace(',','.'));
+      badge.className = 'rent-badge ' + (!isNaN(n) ? (n > 0 ? 'pos' : n < 0 ? 'neg' : 'neutral') : 'neutral');
+    }
+
+    function initRentBadges() {
+      document.querySelectorAll('.rent-badge[data-rkey]').forEach(badge => {
+        const key = badge.dataset.rkey;
+        const saved = localStorage.getItem(key);
+        if (saved !== null) applyRent(badge, saved);
+
+        badge.addEventListener('click', () => {
+          if (badge.querySelector('input')) return;
+          const current = localStorage.getItem(key) || '';
+          const input = document.createElement('input');
+          input.type = 'text'; input.className = 'rent-input';
+          input.placeholder = '+5.2%'; input.value = current;
+          badge.textContent = ''; badge.appendChild(input);
+          input.focus(); input.select();
+
+          function save() {
+            const v = input.value.trim();
+            if (v) localStorage.setItem(key, v); else localStorage.removeItem(key);
+            applyRent(badge, v || '—');
+          }
+          input.addEventListener('blur', save);
+          input.addEventListener('keydown', e => {
+            if (e.key === 'Enter')  input.blur();
+            if (e.key === 'Escape') { localStorage.removeItem(key); applyRent(badge, '—'); }
+          });
+          input.addEventListener('click', e => e.stopPropagation());
+        });
+      });
+    }
+
+    function initAllocChart() {
+      const positions = [
+        { ticker: 'SCDV',   name: 'Scandium Canada',         value: 2084, color: '#06b6d4' },
+        { ticker: 'Equito', name: 'Real Estate Tokenizado',   value: 900,  color: '#84cc16' },
+        { ticker: 'XRP',    name: 'XRP / Bybit',              value: 400,  color: '#f7931a' },
+        { ticker: 'COBAS',  name: 'Cobas International',      value: 150,  color: '#8b5cf6' },
+        { ticker: 'CPD',    name: 'CoinDepo Token',           value: 100,  color: '#ec4899' },
+        { ticker: 'XLM',    name: 'Stellar / CoinDepo',       value: 100,  color: '#14b8a6' },
+        { ticker: 'KO',     name: 'Coca-Cola',                value: 95,   color: '#3d7eff' },
+        { ticker: 'USDC',   name: 'Stablecoin / CoinDepo',    value: 50,   color: '#60a5fa' },
+        { ticker: 'BTI',    name: 'British Am. Tobacco',      value: 24,   color: '#22c55e' },
+        { ticker: 'PLTR',   name: 'Palantir',                 value: 14,   color: '#f59e0b' },
+      ];
+
+      const total = positions.reduce((s, p) => s + p.value, 0);
+      const totalFmt = '€' + total.toLocaleString('es-ES');
+
+      // Build legend
+      const legend = document.getElementById('alloc-legend');
+      positions.forEach(p => {
+        const pct = ((p.value / total) * 100).toFixed(1);
+        const row = document.createElement('div');
+        row.className = 'legend-row';
+        row.innerHTML =
+          '<span class="legend-dot" style="background:' + p.color + '"></span>' +
+          '<span class="legend-ticker">' + p.ticker + '</span>' +
+          '<span class="legend-name">' + p.name + '</span>' +
+          '<span class="legend-val">~€' + p.value.toLocaleString('es-ES') + '</span>' +
+          '<span class="legend-pct" style="color:' + p.color + '">' + pct + '%</span>';
+        legend.appendChild(row);
+      });
+
+      // Center neon text plugin
+      const centerPlugin = {
+        id: 'centerText',
+        afterDraw(chart) {
+          const { ctx, chartArea: { left, right, top, bottom } } = chart;
+          const cx = (left + right) / 2;
+          const cy = (top + bottom) / 2;
+          ctx.save();
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = '#00ff6a';
+          ctx.shadowBlur = 20;
+          ctx.font = 'bold 23px "Space Grotesk", sans-serif';
+          ctx.fillStyle = '#00ff6a';
+          ctx.fillText(totalFmt, cx, cy - 11);
+          ctx.shadowBlur = 0;
+          ctx.font = '500 10px "Inter", sans-serif';
+          ctx.fillStyle = '#3a4d6a';
+          ctx.fillText('TOTAL CARTERA', cx, cy + 13);
+          ctx.restore();
+        }
+      };
+
+      const ctx = document.getElementById('alloc-chart').getContext('2d');
+      new Chart(ctx, {
+        type: 'doughnut',
+        plugins: [centerPlugin],
+        data: {
+          labels: positions.map(p => p.ticker),
+          datasets: [{
+            data:            positions.map(p => p.value),
+            backgroundColor: positions.map(p => p.color),
+            borderColor:     '#06080e',
+            borderWidth:     3,
+            hoverOffset:     7,
+          }]
+        },
+        options: {
+          cutout: '65%',
+          responsive: true,
+          maintainAspectRatio: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0c1018', borderColor: '#1a2235', borderWidth: 1,
+              titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 12,
+              callbacks: {
+                label: c => '  ' + c.label + ':  €' + c.raw.toLocaleString('es-ES') +
+                            '  (' + ((c.raw / total) * 100).toFixed(1) + '%)'
+              }
+            }
+          }
+        }
+      });
+    }
+  </script>
+
+</body>
+</html>
