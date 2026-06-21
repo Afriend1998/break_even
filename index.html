@@ -11,6 +11,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -571,8 +572,46 @@
     .upload-msg.ok   { background: rgba(34,197,94,0.1);  color: #22c55e; border: 1px solid rgba(34,197,94,0.25); }
     .upload-msg.err  { background: rgba(239,68,68,0.1);  color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
 
-    .add-asset-form { display: grid; grid-template-columns: 1fr 1fr 1fr 110px auto; gap: 8px; }
-    @media (max-width: 700px) { .add-asset-form { grid-template-columns: 1fr 1fr; } }
+    /* ── REVISIÓN DE IMPORTACIÓN ── */
+    .import-review { margin-top: 16px; border: 1px solid var(--border); border-radius: 8px; padding: 18px; background: var(--bg); }
+    .import-review.hidden { display: none; }
+    .review-filename { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 14px; word-break: break-all; }
+    .review-field { margin-bottom: 12px; }
+    .review-label { display: block; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .review-mapping { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+    @media (max-width: 560px) { .review-mapping { grid-template-columns: 1fr; } }
+    .review-preview { margin-bottom: 16px; }
+    .review-preview-row { display: flex; gap: 14px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); overflow-x: auto; white-space: nowrap; }
+    .review-preview-row:last-child { border-bottom: none; }
+    .review-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    select.asset-input { cursor: pointer; }
+    .pdf-text-output {
+      max-height: 320px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; padding: 14px; font-family: 'Inter', sans-serif; font-size: 11px;
+      color: var(--muted); line-height: 1.7; white-space: pre-wrap; word-break: break-word; margin-bottom: 14px;
+    }
+
+    /* ── HISTORIAL DE IMPORTACIONES ── */
+    .import-row {
+      display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border);
+    }
+    .import-row:last-child { border-bottom: none; }
+    .import-icon { width: 32px; height: 32px; border-radius: 7px; background: rgba(61,127,255,0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .import-info { flex: 1; min-width: 0; }
+    .import-filename { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .import-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .import-broker-tag {
+      font-size: 10px; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 20px;
+      background: var(--muted2); color: var(--muted); flex-shrink: 0;
+    }
+
+    .add-asset-form { display: flex; flex-wrap: wrap; gap: 8px; }
+    .add-asset-form .asset-input { flex: 1 1 130px; min-width: 110px; }
+    .add-asset-form .new-type-toggle { flex: 1 1 150px; min-width: 140px; }
+    .add-asset-form .add-asset-btn { flex: 1 1 100%; }
+    @media (min-width: 640px) {
+      .add-asset-form .add-asset-btn { flex: 0 0 auto; }
+    }
     .asset-input, .asset-select {
       background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
       padding: 10px 12px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 13px; outline: none;
@@ -1651,11 +1690,64 @@
               <path d="M5 21v3a2 2 0 002 2h16a2 2 0 002-2v-3" stroke="#3d7eff" stroke-width="1.6" stroke-linecap="round"/>
             </svg>
             <div class="upload-text">Arrastra un archivo o haz clic para subir</div>
-            <div class="upload-sub">CSV o Excel (.xlsx) · columnas: ticker, broker, valor</div>
+            <div class="upload-sub">CSV, Excel (.xlsx) o PDF</div>
           </div>
-          <input type="file" id="upload-input" accept=".csv,.xlsx,.xls" hidden>
+          <input type="file" id="upload-input" accept=".csv,.xlsx,.xls,.pdf" hidden>
         </div>
         <div id="upload-status"></div>
+
+        <!-- Panel de revisión: aparece tras subir el archivo, antes de importar -->
+        <div id="import-review" class="import-review hidden">
+          <div class="review-filename" id="review-filename"></div>
+
+          <div class="review-field">
+            <label class="review-label">¿De qué broker es este archivo?</label>
+            <input type="text" id="review-broker" class="asset-input" list="broker-suggestions" placeholder="Ej: Revolut, RULE, IBKR...">
+          </div>
+
+          <div class="review-mapping">
+            <div class="review-field">
+              <label class="review-label">Columna del Ticker</label>
+              <select id="map-ticker" class="asset-input"></select>
+            </div>
+            <div class="review-field">
+              <label class="review-label">Columna del Valor</label>
+              <select id="map-value" class="asset-input"></select>
+            </div>
+            <div class="review-field">
+              <label class="review-label">Columna del Tipo (opcional)</label>
+              <select id="map-type" class="asset-input"></select>
+            </div>
+          </div>
+
+          <div class="review-preview">
+            <div class="review-label">Vista previa (primeras filas detectadas)</div>
+            <div id="review-preview-table"></div>
+          </div>
+
+          <div class="review-actions">
+            <button class="btn-back" id="btn-cancel-import">Cancelar</button>
+            <button class="add-asset-btn" id="btn-confirm-import">Confirmar importación</button>
+          </div>
+        </div>
+
+        <!-- Panel para PDFs: solo texto extraído, sin auto-importar -->
+        <div id="pdf-review" class="import-review hidden">
+          <div class="review-filename" id="pdf-filename"></div>
+          <p class="asset-hint" style="margin-bottom:14px">
+            Los PDF no tienen columnas reales, así que no puedo importarlos automáticamente. Aquí tienes el texto que he extraído — cópialo y usa "Añadir activo manualmente" para meter cada compra/venta. Si me pasas este PDF (puedes tapar importes si quieres) te hago un lector automático específico para este formato.
+          </p>
+          <div id="pdf-text-output" class="pdf-text-output"></div>
+          <div class="review-actions">
+            <button class="btn-back" id="btn-close-pdf">Cerrar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historial de importaciones -->
+      <div class="section-card">
+        <div class="section-title">Archivos importados</div>
+        <div id="imports-history"></div>
       </div>
 
       <!-- Add manual -->
@@ -2274,9 +2366,14 @@
 
       document.getElementById('btn-save-snapshot').addEventListener('click', handleSaveSnapshot);
 
-      const zone  = document.getElementById('upload-zone');
-      const input = document.getElementById('upload-input');
+      const zone   = document.getElementById('upload-zone');
+      const input  = document.getElementById('upload-input');
       const status = document.getElementById('upload-status');
+      const reviewPanel = document.getElementById('import-review');
+
+      let pendingFile = null;
+      let pendingHeaders = [];
+      let pendingRows = [];
 
       zone.addEventListener('click', () => input.click());
       zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
@@ -2297,64 +2394,120 @@
         status.innerHTML = '<div class="upload-msg ' + (ok ? 'ok' : 'err') + '">' + msg + '</div>';
       }
 
-      function findKey(row, candidates) {
-        const keys = Object.keys(row);
+      function guessKey(headers, candidates) {
         for (const c of candidates) {
-          const k = keys.find(k => k.toLowerCase().trim() === c);
+          const k = headers.find(h => h.toLowerCase().trim() === c);
           if (k) return k;
         }
         return null;
       }
 
-      async function importRows(rows) {
-        if (!rows.length) { showStatus('El archivo está vacío o no se pudo leer.', false); return; }
-        const sample = rows[0];
-        const tickerKey = findKey(sample, ['ticker','symbol','simbolo','activo','asset']);
-        const brokerKey = findKey(sample, ['broker','exchange','plataforma']);
-        const valueKey  = findKey(sample, ['value','valor','amount','importe','total']);
-        const typeKey   = findKey(sample, ['type','tipo','operacion','operación','operation','side']);
-
-        if (!tickerKey) {
-          showStatus('No se encontró una columna de ticker/símbolo. Revisa las cabeceras del archivo.', false);
-          return;
+      function buildSelect(id, headers, guessed, withNone) {
+        const sel = document.getElementById(id);
+        sel.innerHTML = '';
+        if (withNone) {
+          const opt = document.createElement('option');
+          opt.value = ''; opt.textContent = '— No usar —';
+          sel.appendChild(opt);
         }
+        headers.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h; opt.textContent = h;
+          if (h === guessed) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      }
+
+      function showReviewPanel(filename, headers, rows) {
+        pendingHeaders = headers;
+        pendingRows = rows;
+
+        document.getElementById('review-filename').textContent = '📄 ' + filename;
+        document.getElementById('review-broker').value = '';
+
+        const tickerGuess = guessKey(headers, ['ticker','symbol','simbolo','activo','asset']);
+        const valueGuess  = guessKey(headers, ['value','valor','amount','importe','total']);
+        const typeGuess   = guessKey(headers, ['type','tipo','operacion','operación','operation','side']);
+
+        buildSelect('map-ticker', headers, tickerGuess, false);
+        buildSelect('map-value', headers, valueGuess, false);
+        buildSelect('map-type', headers, typeGuess, true);
+
+        const previewTable = document.getElementById('review-preview-table');
+        previewTable.innerHTML = '';
+        rows.slice(0, 4).forEach(r => {
+          const rowDiv = document.createElement('div');
+          rowDiv.className = 'review-preview-row';
+          rowDiv.textContent = headers.map(h => h + ': ' + (r[h] ?? '—')).join('   ·   ');
+          previewTable.appendChild(rowDiv);
+        });
+
+        reviewPanel.classList.remove('hidden');
+        reviewPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      document.getElementById('btn-cancel-import').addEventListener('click', () => {
+        reviewPanel.classList.add('hidden');
+        input.value = '';
+        pendingFile = null;
+      });
+
+      function normalizeType(raw) {
+        const v = (raw || '').toString().trim().toLowerCase();
+        if (['venta','sell','v','s'].includes(v)) return 'venta';
+        return 'compra';
+      }
+
+      document.getElementById('btn-confirm-import').addEventListener('click', async () => {
+        const broker = document.getElementById('review-broker').value.trim() || 'Sin clasificar';
+        const tickerKey = document.getElementById('map-ticker').value;
+        const valueKey  = document.getElementById('map-value').value;
+        const typeKey   = document.getElementById('map-type').value;
+
+        if (!tickerKey) { showStatus('Selecciona qué columna es el ticker.', false); return; }
 
         const userId = await getUserId();
         if (!userId) { showStatus('Tienes que iniciar sesión.', false); return; }
 
-        function normalizeType(raw) {
-          const v = (raw || '').toString().trim().toLowerCase();
-          if (['venta','sell','v','s'].includes(v)) return 'venta';
-          return 'compra';
-        }
-
         const toInsert = [];
-        rows.forEach(r => {
+        pendingRows.forEach(r => {
           const ticker = (r[tickerKey] || '').toString().trim();
           if (!ticker) return;
-          const broker = brokerKey ? (r[brokerKey] || '').toString().trim() : '';
-          const value  = valueKey ? parseFloat(r[valueKey]) : 0;
-          const type   = typeKey ? normalizeType(r[typeKey]) : 'compra';
+          const value = valueKey ? parseFloat(r[valueKey]) : 0;
+          const type  = typeKey ? normalizeType(r[typeKey]) : 'compra';
           toInsert.push({
             user_id: userId, ticker: ticker.toUpperCase(), name: '',
-            broker: broker || 'Sin clasificar',
-            value: isNaN(value) ? 0 : value,
-            type,
+            broker, value: isNaN(value) ? 0 : value, type,
           });
         });
 
         if (toInsert.length) await sb.from('assets').insert(toInsert);
+
+        await sb.from('imports').insert({
+          user_id: userId,
+          filename: pendingFile ? pendingFile.name : 'archivo',
+          broker,
+          row_count: toInsert.length,
+        });
+
+        reviewPanel.classList.add('hidden');
+        input.value = '';
         renderAssets();
-        const typeNote = typeKey ? '' : ' (no se detectó columna de tipo, todo se marcó como compra — puedes cambiarlo fila a fila)';
-        showStatus('Importados ' + toInsert.length + ' activos correctamente.' + typeNote, true);
-      }
+        renderImportsHistory();
+        showStatus('Importadas ' + toInsert.length + ' filas de "' + broker + '" correctamente.', true);
+      });
 
       function handleFile(file) {
+        pendingFile = file;
         const name = file.name.toLowerCase();
         if (name.endsWith('.csv')) {
           Papa.parse(file, {
             header: true, skipEmptyLines: true,
-            complete: res => importRows(res.data),
+            complete: res => {
+              const headers = res.meta.fields || [];
+              if (!headers.length) { showStatus('No se pudieron leer las columnas del CSV.', false); return; }
+              showReviewPanel(file.name, headers, res.data);
+            },
             error: () => showStatus('No se pudo leer el CSV.', false),
           });
         } else if (name.endsWith('.xlsx') || name.endsWith('.xls')) {
@@ -2364,16 +2517,82 @@
               const wb = XLSX.read(e.target.result, { type: 'array' });
               const sheet = wb.Sheets[wb.SheetNames[0]];
               const rows = XLSX.utils.sheet_to_json(sheet);
-              importRows(rows);
+              if (!rows.length) { showStatus('El archivo está vacío.', false); return; }
+              const headers = Object.keys(rows[0]);
+              showReviewPanel(file.name, headers, rows);
             } catch { showStatus('No se pudo leer el archivo Excel.', false); }
           };
           reader.readAsArrayBuffer(file);
+        } else if (name.endsWith('.pdf')) {
+          extractPdfText(file);
         } else {
-          showStatus('Formato no soportado. Usa CSV o Excel (.xlsx).', false);
+          showStatus('Formato no soportado. Usa CSV, Excel (.xlsx) o PDF.', false);
         }
       }
 
+      async function extractPdfText(file) {
+        try {
+          showStatus('Leyendo el PDF...', true);
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          const buffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+
+          let fullText = '';
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            const pageText = content.items.map(item => item.str).join(' ');
+            fullText += '── Página ' + i + ' ──\n' + pageText + '\n\n';
+          }
+
+          document.getElementById('pdf-filename').textContent = '📄 ' + file.name;
+          document.getElementById('pdf-text-output').textContent = fullText || '(No se ha encontrado texto seleccionable en este PDF — puede que sea una imagen escaneada.)';
+          document.getElementById('pdf-review').classList.remove('hidden');
+          document.getElementById('pdf-review').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          status.innerHTML = '';
+        } catch (err) {
+          showStatus('No se pudo leer el PDF: ' + err.message, false);
+        }
+      }
+
+      document.getElementById('btn-close-pdf').addEventListener('click', () => {
+        document.getElementById('pdf-review').classList.add('hidden');
+        input.value = '';
+      });
+
       renderAssets();
+      renderImportsHistory();
+    }
+
+    /* ── HISTORIAL DE IMPORTACIONES ── */
+    async function renderImportsHistory() {
+      const wrap = document.getElementById('imports-history');
+      if (!wrap) return;
+
+      const { data: imports, error } = await sb
+        .from('imports')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error || !imports || imports.length === 0) {
+        wrap.innerHTML = '<div class="assets-empty">Todavía no has importado ningún archivo.</div>';
+        return;
+      }
+
+      wrap.innerHTML = '';
+      imports.forEach(imp => {
+        const date = new Date(imp.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const row = document.createElement('div');
+        row.className = 'import-row';
+        row.innerHTML =
+          '<div class="import-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2h7l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="#3d7eff" stroke-width="1.3" stroke-linejoin="round"/><path d="M9 2v3h3" stroke="#3d7eff" stroke-width="1.3" stroke-linejoin="round"/></svg></div>' +
+          '<div class="import-info">' +
+            '<div class="import-filename">' + imp.filename + '</div>' +
+            '<div class="import-meta">' + date + ' · ' + imp.row_count + ' filas</div>' +
+          '</div>' +
+          '<span class="import-broker-tag">' + imp.broker + '</span>';
+        wrap.appendChild(row);
+      });
     }
 
 
