@@ -579,13 +579,28 @@
     }
     .add-asset-btn:hover { background: #5b93ff; }
 
-    .broker-group { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 14px; overflow: hidden; }
-    .broker-group-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 20px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.015);
+    /* ── TICKER GROUPS (agrupado por activo) ── */
+    .ticker-group { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+    .ticker-group-header {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 16px 20px; cursor: pointer; transition: background 0.15s; user-select: none;
     }
-    .broker-group-name  { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: var(--text); }
-    .broker-group-total { font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: var(--accent); }
+    .ticker-group-header:hover { background: rgba(255,255,255,0.02); }
+    .ticker-left  { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+    .ticker-symbol { font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); }
+    .ticker-count  { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .ticker-right { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+    .ticker-avg   { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .ticker-total { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+    .ticker-chevron { color: var(--muted); transition: transform 0.25s ease; flex-shrink: 0; }
+    .ticker-group.expanded .ticker-chevron { transform: rotate(180deg); }
+    .ticker-body { display: none; border-top: 1px solid var(--border); }
+    .ticker-group.expanded .ticker-body { display: block; }
+    @media (max-width: 480px) {
+      .ticker-avg { display: none; }
+      .ticker-group-header { flex-wrap: wrap; }
+    }
+
     .asset-row {
       display: grid; grid-template-columns: 90px 1fr 110px 32px; gap: 10px; align-items: center;
       padding: 10px 20px; border-bottom: 1px solid rgba(26,34,53,0.6);
@@ -594,12 +609,25 @@
     .asset-row input, .asset-row select {
       background: transparent; border: 1px solid transparent; border-radius: 5px;
       padding: 6px 8px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 12px; outline: none;
-      transition: border-color 0.15s, background 0.15s; width: 100%;
+      transition: border-color 0.15s, background 0.15s; width: 100%; min-width: 0;
     }
     .asset-row input:hover, .asset-row select:hover { background: var(--bg); border-color: var(--border); }
     .asset-row input:focus, .asset-row select:focus { background: var(--bg); border-color: var(--accent); }
     .asset-row .asset-ticker-input { font-family: 'Space Grotesk', sans-serif; font-weight: 700; }
     .asset-row .asset-value-input { text-align: right; }
+    /* Mobile: pasa de 1 fila a layout en 2 columnas / 3 filas, sin solaparse */
+    @media (max-width: 560px) {
+      .asset-row {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas: "ticker value" "name name" "broker delete";
+        row-gap: 4px;
+      }
+      .asset-row .asset-ticker-input { grid-area: ticker; }
+      .asset-row .asset-value-input  { grid-area: value; }
+      .asset-row .asset-name-input   { grid-area: name; }
+      .asset-row .asset-broker-input { grid-area: broker; }
+      .asset-row .asset-delete       { grid-area: delete; justify-self: end; }
+    }
     .asset-delete {
       width: 26px; height: 26px; border-radius: 5px; border: none; background: transparent;
       color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
@@ -850,70 +878,12 @@
 
         <!-- TRADICIONAL -->
         <div class="tab-panel active" id="panel-trad">
-          <div class="position-row">
-            <span class="pos-ticker">KO</span>
-            <span class="pos-broker">Revolut · Coca-Cola</span>
-            <span class="pos-tag renta">Dividendo</span>
-            <span class="pos-value">~$103</span>
-          </div>
-          <div class="position-row">
-            <span class="pos-ticker">BTI</span>
-            <span class="pos-broker">Revolut · British American Tobacco</span>
-            <span class="pos-tag renta">Dividendo</span>
-            <span class="pos-value">~$26</span>
-          </div>
-          <div class="position-row">
-            <span class="pos-ticker">PLTR</span>
-            <span class="pos-broker">Revolut · Palantir</span>
-            <span class="pos-tag spec">Especulativo</span>
-            <span class="pos-value">~$15</span>
-          </div>
-          <div class="position-row">
-            <span class="pos-ticker">COBAS</span>
-            <span class="pos-broker">MyInvestor · Cobas International</span>
-            <span class="pos-tag renta">Fondo</span>
-            <span class="pos-value">~€150</span>
-          </div>
-          <div class="position-row">
-            <span class="pos-ticker">SCDV</span>
-            <span class="pos-broker">Interactive Brokers · Scandium Canada</span>
-            <span class="pos-tag spec">Especulativo</span>
-            <span class="pos-value">~€2.084</span>
-          </div>
+          <div class="assets-empty">Sin posiciones añadidas todavía. Usa "Mis Activos" para empezar.</div>
         </div>
 
         <!-- CRIPTO -->
         <div class="tab-panel" id="panel-crypto">
-          <div class="position-row">
-            <span class="pos-ticker">XRP</span>
-            <span class="pos-broker">Bybit · Reto XRP</span>
-            <span class="pos-tag spec">Trading</span>
-            <span class="pos-value">~€400</span>
-          </div>
-          <div class="position-row">
-            <span class="pos-ticker">USDC</span>
-            <span class="pos-broker">CoinDepo · Stablecoin</span>
-            <span class="pos-tag stake">Staking</span>
-            <span class="pos-value">—</span>
-          </div>
-          <div class="position-row">
-            <span class="pos-ticker">CPD</span>
-            <span class="pos-broker">CoinDepo · Token nativo</span>
-            <span class="pos-tag stake">Staking 21%</span>
-            <span class="pos-value">~795 tkn</span>
-          </div>
-          <div class="position-row">
-            <span class="pos-ticker">XLM</span>
-            <span class="pos-broker">CoinDepo · Stellar</span>
-            <span class="pos-tag stake">Staking 14%</span>
-            <span class="pos-value">~6.165 XLM</span>
-          </div>
-          <div class="position-row">
-            <span class="pos-ticker">EQUITO</span>
-            <span class="pos-broker">Equito · Real Estate Tokenizado</span>
-            <span class="pos-tag renta">Renta</span>
-            <span class="pos-value">~€900</span>
-          </div>
+          <div class="assets-empty">Sin posiciones añadidas todavía. Usa "Mis Activos" para empezar.</div>
         </div>
 
       </div>
@@ -921,100 +891,7 @@
       <!-- ─── RESUMEN POR ESTRATEGIA ─── -->
       <div class="section-card">
         <div class="section-title">Resumen por estrategia</div>
-
-        <!-- ACCIONES -->
-        <div class="strategy-group">
-          <div class="strategy-header">
-            <span class="strategy-label">📈 Acciones</span>
-            <span class="strategy-total">~$144</span>
-          </div>
-          <div class="strategy-row">
-            <span class="str-ticker">KO</span>
-            <span class="str-name">Coca-Cola · Dividendo</span>
-            <span class="str-val">~$103</span>
-            <span class="rent-badge neutral" data-rkey="rent_KO">—</span>
-          </div>
-          <div class="strategy-row">
-            <span class="str-ticker">BTI</span>
-            <span class="str-name">British Am. Tobacco · Dividendo</span>
-            <span class="str-val">~$26</span>
-            <span class="rent-badge neutral" data-rkey="rent_BTI">—</span>
-          </div>
-          <div class="strategy-row">
-            <span class="str-ticker">PLTR</span>
-            <span class="str-name">Palantir · Growth</span>
-            <span class="str-val">~$15</span>
-            <span class="rent-badge neutral" data-rkey="rent_PLTR">—</span>
-          </div>
-        </div>
-
-        <!-- VALUE -->
-        <div class="strategy-group">
-          <div class="strategy-header">
-            <span class="strategy-label">💎 Value</span>
-            <span class="strategy-total">~€150</span>
-          </div>
-          <div class="strategy-row">
-            <span class="str-ticker">COBAS</span>
-            <span class="str-name">Cobas International · Fondo value</span>
-            <span class="str-val">~€150</span>
-            <span class="rent-badge neutral" data-rkey="rent_COBAS">—</span>
-          </div>
-        </div>
-
-        <!-- GEMAS -->
-        <div class="strategy-group">
-          <div class="strategy-header">
-            <span class="strategy-label">🔥 Gemas</span>
-            <span class="strategy-total">~€2.484</span>
-          </div>
-          <div class="strategy-row">
-            <span class="str-ticker">SCDV</span>
-            <span class="str-name">Scandium Canada · Micro-cap</span>
-            <span class="str-val">~€2.084</span>
-            <span class="rent-badge neutral" data-rkey="rent_SCDV">—</span>
-          </div>
-          <div class="strategy-row">
-            <span class="str-ticker">XRP</span>
-            <span class="str-name">XRP · Bybit</span>
-            <span class="str-val">~€400</span>
-            <span class="rent-badge neutral" data-rkey="rent_XRP">—</span>
-          </div>
-        </div>
-
-        <!-- FONDOS / RENTA -->
-        <div class="strategy-group strategy-last">
-          <div class="strategy-header">
-            <span class="strategy-label">🏦 Fondos / Renta</span>
-            <span class="strategy-total">~€1.150</span>
-          </div>
-          <div class="strategy-row">
-            <span class="str-ticker">EQUITO</span>
-            <span class="str-name">Real Estate Tokenizado</span>
-            <span class="str-val">~€900</span>
-            <span class="rent-badge neutral" data-rkey="rent_EQUITO">—</span>
-          </div>
-          <div class="strategy-row">
-            <span class="str-ticker">CPD</span>
-            <span class="str-name">CoinDepo Token · Staking</span>
-            <span class="str-val">~€100</span>
-            <span class="rent-badge pos" data-rkey="rent_CPD">+21%</span>
-          </div>
-          <div class="strategy-row">
-            <span class="str-ticker">XLM</span>
-            <span class="str-name">Stellar · Staking</span>
-            <span class="str-val">~€100</span>
-            <span class="rent-badge pos" data-rkey="rent_XLM">+14%</span>
-          </div>
-          <div class="strategy-row">
-            <span class="str-ticker">USDC</span>
-            <span class="str-name">Stablecoin · Staking</span>
-            <span class="str-val">—</span>
-            <span class="rent-badge neutral" data-rkey="rent_USDC">—</span>
-          </div>
-        </div>
-
-        <p style="font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:0.05em">Toca el % para editar · Se guarda en el navegador</p>
+        <div class="assets-empty">Sin posiciones añadidas todavía. Usa "Mis Activos" para empezar.</div>
       </div>
 
       <!-- ─── INTERÉS COMPUESTO ─── -->
@@ -2068,43 +1945,58 @@
           '<div class="example-banner">' +
             '<span>👁️ Esto es un <strong>ejemplo visual</strong> de cómo se verá. Importa un archivo o añade un activo para empezar.</span>' +
           '</div>' +
-          '<div class="broker-group example-group">' +
-            '<div class="broker-group-header">' +
-              '<span class="broker-group-name">RULE <span class="example-tag">ejemplo</span></span>' +
-              '<span class="broker-group-total">€120</span>' +
+          '<div class="ticker-group example-group expanded">' +
+            '<div class="ticker-group-header">' +
+              '<div class="ticker-left"><span class="ticker-symbol">ASTS <span class="example-tag">ejemplo</span></span><span class="ticker-count">1 compra</span></div>' +
+              '<div class="ticker-right"><span class="ticker-avg">Media: €120</span><span class="ticker-total">€120</span></div>' +
             '</div>' +
-            '<div class="asset-row">' +
-              '<input value="ASTS" disabled>' +
-              '<input value="AST SpaceMobile · cuenta Revolut" disabled>' +
-              '<input value="RULE" disabled>' +
-              '<input value="120" disabled class="asset-value-input">' +
-              '<button class="asset-delete" disabled style="opacity:0.3"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>' +
+            '<div class="ticker-body">' +
+              '<div class="asset-row">' +
+                '<input value="ASTS" disabled class="asset-ticker-input">' +
+                '<input value="AST SpaceMobile · cuenta Revolut" disabled class="asset-name-input">' +
+                '<input value="RULE" disabled class="asset-broker-input">' +
+                '<input value="120" disabled class="asset-value-input">' +
+                '<button class="asset-delete" disabled style="opacity:0.3"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>' +
+              '</div>' +
             '</div>' +
           '</div>';
         container.appendChild(exampleWrap);
         return;
       }
 
+      // Agrupar por TICKER, no por broker
       const grouped = {};
       assets.forEach(a => {
-        const broker = a.broker || 'Sin clasificar';
-        if (!grouped[broker]) grouped[broker] = [];
-        grouped[broker].push(a);
+        const ticker = (a.ticker || 'SIN TICKER').toUpperCase();
+        if (!grouped[ticker]) grouped[ticker] = [];
+        grouped[ticker].push(a);
       });
 
-      Object.keys(grouped).sort().forEach(broker => {
-        const items = grouped[broker];
+      Object.keys(grouped).sort().forEach(ticker => {
+        const items = grouped[ticker];
         const total = items.reduce((s, a) => s + (parseFloat(a.value) || 0), 0);
+        const avg   = total / items.length;
 
         const group = document.createElement('div');
-        group.className = 'broker-group';
+        group.className = 'ticker-group';
 
         const header = document.createElement('div');
-        header.className = 'broker-group-header';
+        header.className = 'ticker-group-header';
         header.innerHTML =
-          '<span class="broker-group-name">' + broker + '</span>' +
-          '<span class="broker-group-total">' + fmtEur(total) + '</span>';
+          '<div class="ticker-left">' +
+            '<span class="ticker-symbol">' + ticker + '</span>' +
+            '<span class="ticker-count">' + items.length + ' compra' + (items.length > 1 ? 's' : '') + '</span>' +
+          '</div>' +
+          '<div class="ticker-right">' +
+            '<span class="ticker-avg">Media: ' + fmtEur(avg) + '</span>' +
+            '<span class="ticker-total">' + fmtEur(total) + '</span>' +
+            '<svg class="ticker-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '</div>';
+        header.addEventListener('click', () => group.classList.toggle('expanded'));
         group.appendChild(header);
+
+        const body = document.createElement('div');
+        body.className = 'ticker-body';
 
         items.forEach(a => {
           const row = document.createElement('div');
@@ -2120,6 +2012,7 @@
           });
 
           const nameInput = document.createElement('input');
+          nameInput.className = 'asset-name-input';
           nameInput.value = a.name || '';
           nameInput.placeholder = 'Nombre / nota';
           nameInput.addEventListener('blur', async () => {
@@ -2128,7 +2021,8 @@
           });
 
           const brokerInput = document.createElement('input');
-          brokerInput.value = broker;
+          brokerInput.className = 'asset-broker-input';
+          brokerInput.value = a.broker || 'Sin clasificar';
           brokerInput.setAttribute('list', 'broker-suggestions');
           brokerInput.placeholder = 'Broker';
           brokerInput.addEventListener('blur', async () => {
@@ -2149,7 +2043,8 @@
           const delBtn = document.createElement('button');
           delBtn.className = 'asset-delete';
           delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>';
-          delBtn.addEventListener('click', async () => {
+          delBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
             await sb.from('assets').delete().eq('id', a.id);
             renderAssets();
           });
@@ -2159,9 +2054,10 @@
           row.appendChild(brokerInput);
           row.appendChild(valueInput);
           row.appendChild(delBtn);
-          group.appendChild(row);
+          body.appendChild(row);
         });
 
+        group.appendChild(body);
         container.appendChild(group);
       });
 
@@ -2572,18 +2468,13 @@
     }
 
     function initAllocChart() {
-      const positions = [
-        { ticker: 'SCDV',   name: 'Scandium Canada',         value: 2084, color: '#06b6d4' },
-        { ticker: 'Equito', name: 'Real Estate Tokenizado',   value: 900,  color: '#84cc16' },
-        { ticker: 'XRP',    name: 'XRP / Bybit',              value: 400,  color: '#f7931a' },
-        { ticker: 'COBAS',  name: 'Cobas International',      value: 150,  color: '#8b5cf6' },
-        { ticker: 'CPD',    name: 'CoinDepo Token',           value: 100,  color: '#ec4899' },
-        { ticker: 'XLM',    name: 'Stellar / CoinDepo',       value: 100,  color: '#14b8a6' },
-        { ticker: 'KO',     name: 'Coca-Cola',                value: 95,   color: '#3d7eff' },
-        { ticker: 'USDC',   name: 'Stablecoin / CoinDepo',    value: 50,   color: '#60a5fa' },
-        { ticker: 'BTI',    name: 'British Am. Tobacco',      value: 24,   color: '#22c55e' },
-        { ticker: 'PLTR',   name: 'Palantir',                 value: 14,   color: '#f59e0b' },
-      ];
+      const positions = [];
+
+      const allocWrap = document.querySelector('.alloc-wrap');
+      if (positions.length === 0) {
+        allocWrap.innerHTML = '<div class="assets-empty" style="grid-column:1/-1">Sin posiciones añadidas todavía. Usa "Mis Activos" para empezar.</div>';
+        return;
+      }
 
       const total = positions.reduce((s, p) => s + p.value, 0);
       const totalFmt = '€' + total.toLocaleString('es-ES');
