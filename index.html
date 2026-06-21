@@ -606,12 +606,14 @@
     }
 
     .add-asset-form { display: flex; flex-wrap: wrap; gap: 8px; }
-    .add-asset-form .asset-input { flex: 1 1 130px; min-width: 110px; }
-    .add-asset-form .new-type-toggle { flex: 1 1 150px; min-width: 140px; }
-    .add-asset-form .add-asset-btn { flex: 1 1 100%; }
-    @media (min-width: 640px) {
-      .add-asset-form .add-asset-btn { flex: 0 0 auto; }
+    .add-asset-form .asset-input { flex: 1 1 160px; min-width: 130px; }
+
+    .add-asset-bottom {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      margin-top: 14px;
     }
+    .add-asset-bottom .new-type-toggle { width: 220px; }
+    .add-asset-bottom .add-asset-btn { width: 220px; }
     .asset-input, .asset-select {
       background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
       padding: 10px 12px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 13px; outline: none;
@@ -1758,6 +1760,8 @@
           <input type="text" id="new-ticker" class="asset-input" placeholder="Ticker (ej: ASTS)">
           <input type="text" id="new-broker" class="asset-input" list="broker-suggestions" placeholder="Broker (ej: Revolut, RULE...)">
           <input type="number" id="new-value" class="asset-input" placeholder="Valor (€)">
+        </div>
+        <div class="add-asset-bottom">
           <div class="new-type-toggle">
             <button type="button" class="new-type-btn active" data-type="compra">Compra</button>
             <button type="button" class="new-type-btn" data-type="venta">Venta</button>
