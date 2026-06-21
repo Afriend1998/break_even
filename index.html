@@ -571,8 +571,8 @@
     .upload-msg.ok   { background: rgba(34,197,94,0.1);  color: #22c55e; border: 1px solid rgba(34,197,94,0.25); }
     .upload-msg.err  { background: rgba(239,68,68,0.1);  color: #ef4444; border: 1px solid rgba(239,68,68,0.25); }
 
-    .add-asset-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 8px; }
-    @media (max-width: 560px) { .add-asset-form { grid-template-columns: 1fr 1fr; } }
+    .add-asset-form { display: grid; grid-template-columns: 1fr 1fr 1fr 110px auto; gap: 8px; }
+    @media (max-width: 700px) { .add-asset-form { grid-template-columns: 1fr 1fr; } }
     .asset-input, .asset-select {
       background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
       padding: 10px 12px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 13px; outline: none;
@@ -609,7 +609,7 @@
     }
 
     .asset-row {
-      display: grid; grid-template-columns: 90px 1fr 110px 32px; gap: 10px; align-items: center;
+      display: grid; grid-template-columns: 80px 1fr 100px 56px 80px 28px; gap: 8px; align-items: center;
       padding: 10px 20px; border-bottom: 1px solid rgba(26,34,53,0.6);
     }
     .asset-row:last-child { border-bottom: none; }
@@ -622,17 +622,18 @@
     .asset-row input:focus, .asset-row select:focus { background: var(--bg); border-color: var(--accent); }
     .asset-row .asset-ticker-input { font-family: 'Space Grotesk', sans-serif; font-weight: 700; }
     .asset-row .asset-value-input { text-align: right; }
-    /* Mobile: pasa de 1 fila a layout en 2 columnas / 3 filas, sin solaparse */
+    /* Mobile: pasa de 1 fila a layout en 2 columnas / varias filas, sin solaparse */
     @media (max-width: 560px) {
       .asset-row {
         grid-template-columns: 1fr 1fr;
-        grid-template-areas: "ticker value" "name name" "broker delete";
+        grid-template-areas: "ticker tipo" "name name" "broker value" "delete delete";
         row-gap: 4px;
       }
       .asset-row .asset-ticker-input { grid-area: ticker; }
       .asset-row .asset-value-input  { grid-area: value; }
       .asset-row .asset-name-input   { grid-area: name; }
       .asset-row .asset-broker-input { grid-area: broker; }
+      .asset-row .type-toggle        { grid-area: tipo; }
       .asset-row .asset-delete       { grid-area: delete; justify-self: end; }
     }
     .asset-delete {
@@ -641,6 +642,24 @@
       transition: background 0.15s, color 0.15s;
     }
     .asset-delete:hover { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+    .type-toggle {
+      border: none; border-radius: 5px; padding: 6px 4px; cursor: pointer;
+      font-family: 'Space Grotesk', sans-serif; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase; transition: opacity 0.15s; width: 100%;
+    }
+    .type-toggle:hover { opacity: 0.8; }
+    .type-toggle.compra { background: rgba(34,197,94,0.14); color: #22c55e; }
+    .type-toggle.venta  { background: rgba(239,68,68,0.14); color: #ef4444; }
+
+    .new-type-toggle { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .new-type-btn {
+      flex: 1; border: none; background: var(--bg); color: var(--muted); cursor: pointer;
+      padding: 10px 0; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+      transition: background 0.15s, color 0.15s;
+    }
+    .new-type-btn.active[data-type="compra"] { background: rgba(34,197,94,0.16); color: #22c55e; }
+    .new-type-btn.active[data-type="venta"]  { background: rgba(239,68,68,0.16); color: #ef4444; }
     .assets-empty { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
     .asset-hint { font-size: 11px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
     .example-banner {
@@ -1647,6 +1666,10 @@
           <input type="text" id="new-ticker" class="asset-input" placeholder="Ticker (ej: ASTS)">
           <input type="text" id="new-broker" class="asset-input" list="broker-suggestions" placeholder="Broker (ej: Revolut, RULE...)">
           <input type="number" id="new-value" class="asset-input" placeholder="Valor (€)">
+          <div class="new-type-toggle">
+            <button type="button" class="new-type-btn active" data-type="compra">Compra</button>
+            <button type="button" class="new-type-btn" data-type="venta">Venta</button>
+          </div>
           <button id="btn-add-asset" class="add-asset-btn">+ Añadir</button>
         </div>
         <datalist id="broker-suggestions"></datalist>
@@ -1999,13 +2022,14 @@
           '<div class="ticker-group example-group expanded">' +
             '<div class="ticker-group-header">' +
               '<div class="ticker-left"><span class="ticker-symbol">ASTS <span class="example-tag">ejemplo</span></span><span class="ticker-count">1 compra</span></div>' +
-              '<div class="ticker-right"><span class="ticker-avg">Media: €120</span><span class="ticker-total">€120</span></div>' +
+              '<div class="ticker-right"><span class="ticker-avg">Compra media: €120</span><span class="ticker-total">€120</span></div>' +
             '</div>' +
             '<div class="ticker-body">' +
               '<div class="asset-row">' +
                 '<input value="ASTS" disabled class="asset-ticker-input">' +
                 '<input value="AST SpaceMobile · cuenta Revolut" disabled class="asset-name-input">' +
                 '<input value="RULE" disabled class="asset-broker-input">' +
+                '<button class="type-toggle compra" disabled style="opacity:0.6">Compra</button>' +
                 '<input value="120" disabled class="asset-value-input">' +
                 '<button class="asset-delete" disabled style="opacity:0.3"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>' +
               '</div>' +
@@ -2025,8 +2049,15 @@
 
       Object.keys(grouped).sort().forEach(ticker => {
         const items = grouped[ticker];
-        const total = items.reduce((s, a) => s + (parseFloat(a.value) || 0), 0);
-        const avg   = total / items.length;
+        const buys  = items.filter(a => (a.type || 'compra') !== 'venta');
+        const sells = items.filter(a => a.type === 'venta');
+        const totalBuy  = buys.reduce((s, a) => s + (parseFloat(a.value) || 0), 0);
+        const totalSell = sells.reduce((s, a) => s + (parseFloat(a.value) || 0), 0);
+        const net  = totalBuy - totalSell;
+        const avg  = buys.length ? totalBuy / buys.length : 0;
+
+        let countLabel = buys.length + ' compra' + (buys.length !== 1 ? 's' : '');
+        if (sells.length > 0) countLabel += ' · ' + sells.length + ' venta' + (sells.length !== 1 ? 's' : '');
 
         const group = document.createElement('div');
         group.className = 'ticker-group';
@@ -2036,11 +2067,11 @@
         header.innerHTML =
           '<div class="ticker-left">' +
             '<span class="ticker-symbol">' + ticker + '</span>' +
-            '<span class="ticker-count">' + items.length + ' compra' + (items.length > 1 ? 's' : '') + '</span>' +
+            '<span class="ticker-count">' + countLabel + '</span>' +
           '</div>' +
           '<div class="ticker-right">' +
-            '<span class="ticker-avg">Media: ' + fmtEur(avg) + '</span>' +
-            '<span class="ticker-total">' + fmtEur(total) + '</span>' +
+            '<span class="ticker-avg">Compra media: ' + (buys.length ? fmtEur(avg) : '—') + '</span>' +
+            '<span class="ticker-total" style="color:' + (net < 0 ? '#ef4444' : 'var(--accent)') + '">' + fmtEur(net) + '</span>' +
             '<svg class="ticker-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
           '</div>';
         header.addEventListener('click', () => group.classList.toggle('expanded'));
@@ -2081,6 +2112,17 @@
             renderAssets();
           });
 
+          const currentType = a.type === 'venta' ? 'venta' : 'compra';
+          const typeBtn = document.createElement('button');
+          typeBtn.className = 'type-toggle ' + currentType;
+          typeBtn.textContent = currentType === 'venta' ? 'Venta' : 'Compra';
+          typeBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const newType = currentType === 'venta' ? 'compra' : 'venta';
+            await sb.from('assets').update({ type: newType }).eq('id', a.id);
+            renderAssets();
+          });
+
           const valueInput = document.createElement('input');
           valueInput.className = 'asset-value-input';
           valueInput.type = 'number';
@@ -2103,6 +2145,7 @@
           row.appendChild(tickerInput);
           row.appendChild(nameInput);
           row.appendChild(brokerInput);
+          row.appendChild(typeBtn);
           row.appendChild(valueInput);
           row.appendChild(delBtn);
           body.appendChild(row);
@@ -2116,7 +2159,7 @@
       renderEvolutionChart();
     }
 
-    async function addAsset(ticker, broker, value) {
+    async function addAsset(ticker, broker, value, type) {
       const userId = await getUserId();
       if (!userId) return;
       await sb.from('assets').insert({
@@ -2125,6 +2168,7 @@
         name: '',
         broker: broker || 'Sin clasificar',
         value: parseFloat(value) || 0,
+        type: type === 'venta' ? 'venta' : 'compra',
       });
       renderAssets();
     }
@@ -2208,12 +2252,21 @@
     function initAssetsScreen() {
       populateBrokerSuggestions();
 
+      let selectedNewType = 'compra';
+      document.querySelectorAll('.new-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.new-type-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          selectedNewType = btn.dataset.type;
+        });
+      });
+
       document.getElementById('btn-add-asset').addEventListener('click', () => {
         const t = document.getElementById('new-ticker').value.trim();
         const b = document.getElementById('new-broker').value.trim() || 'Sin clasificar';
         const v = document.getElementById('new-value').value;
         if (!t) return;
-        addAsset(t, b, v);
+        addAsset(t, b, v, selectedNewType);
         document.getElementById('new-ticker').value = '';
         document.getElementById('new-broker').value = '';
         document.getElementById('new-value').value = '';
@@ -2259,6 +2312,7 @@
         const tickerKey = findKey(sample, ['ticker','symbol','simbolo','activo','asset']);
         const brokerKey = findKey(sample, ['broker','exchange','plataforma']);
         const valueKey  = findKey(sample, ['value','valor','amount','importe','total']);
+        const typeKey   = findKey(sample, ['type','tipo','operacion','operación','operation','side']);
 
         if (!tickerKey) {
           showStatus('No se encontró una columna de ticker/símbolo. Revisa las cabeceras del archivo.', false);
@@ -2268,22 +2322,31 @@
         const userId = await getUserId();
         if (!userId) { showStatus('Tienes que iniciar sesión.', false); return; }
 
+        function normalizeType(raw) {
+          const v = (raw || '').toString().trim().toLowerCase();
+          if (['venta','sell','v','s'].includes(v)) return 'venta';
+          return 'compra';
+        }
+
         const toInsert = [];
         rows.forEach(r => {
           const ticker = (r[tickerKey] || '').toString().trim();
           if (!ticker) return;
           const broker = brokerKey ? (r[brokerKey] || '').toString().trim() : '';
           const value  = valueKey ? parseFloat(r[valueKey]) : 0;
+          const type   = typeKey ? normalizeType(r[typeKey]) : 'compra';
           toInsert.push({
             user_id: userId, ticker: ticker.toUpperCase(), name: '',
             broker: broker || 'Sin clasificar',
             value: isNaN(value) ? 0 : value,
+            type,
           });
         });
 
         if (toInsert.length) await sb.from('assets').insert(toInsert);
         renderAssets();
-        showStatus('Importados ' + toInsert.length + ' activos correctamente.', true);
+        const typeNote = typeKey ? '' : ' (no se detectó columna de tipo, todo se marcó como compra — puedes cambiarlo fila a fila)';
+        showStatus('Importados ' + toInsert.length + ' activos correctamente.' + typeNote, true);
       }
 
       function handleFile(file) {
