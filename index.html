@@ -510,6 +510,13 @@
     .auth-msg { margin-top: 14px; font-size: 12px; text-align: center; min-height: 16px; }
     .auth-msg.ok  { color: #22c55e; }
     .auth-msg.err { color: #ef4444; }
+    .forgot-link {
+      display: block; width: 100%; text-align: center; margin-top: 14px;
+      background: none; border: none; cursor: pointer;
+      font-size: 11px; color: var(--muted); letter-spacing: 0.04em;
+      transition: color 0.2s;
+    }
+    .forgot-link:hover { color: var(--accent); }
     .logout-link {
       position: absolute; top: 24px; right: 24px;
       font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
@@ -691,7 +698,21 @@
         <span id="auth-submit-label">Entrar</span>
       </button>
 
+      <button class="forgot-link" id="btn-forgot-password">¿Olvidaste tu contraseña?</button>
+
       <div id="auth-msg"></div>
+    </div>
+  </div>
+
+  <!-- ─── SCREEN: RESET PASSWORD ─── -->
+  <div class="screen hidden" id="screen-reset">
+    <div class="auth-box">
+      <div class="intro-eyebrow" style="margin-bottom:24px">Nueva contraseña</div>
+      <input type="password" id="reset-password" class="auth-input" placeholder="Nueva contraseña (mín. 6 caracteres)" autocomplete="new-password">
+      <button class="btn-continue" id="btn-reset-submit" style="width:100%;justify-content:center;margin-top:8px">
+        <span>Guardar nueva contraseña</span>
+      </button>
+      <div id="reset-msg"></div>
     </div>
   </div>
 
@@ -1667,6 +1688,7 @@
       libros:     document.getElementById('screen-libros'),
       about:      document.getElementById('screen-about'),
       assets:     document.getElementById('screen-assets'),
+      reset:      document.getElementById('screen-reset'),
     };
     function goTo(target) {
       Object.keys(screens).forEach(key => {
@@ -1723,6 +1745,35 @@
     document.getElementById('btn-logout').addEventListener('click', async () => {
       await sb.auth.signOut();
       goTo('intro');
+    });
+
+    /* ── RECUPERAR CONTRASEÑA ── */
+    document.getElementById('btn-forgot-password').addEventListener('click', async () => {
+      const email = document.getElementById('auth-email').value.trim();
+      if (!email) { showAuthMsg('Escribe tu email arriba primero y vuelve a pulsar.', false); return; }
+      const { error } = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://afriend1998.github.io/break_even/',
+      });
+      if (error) { showAuthMsg(error.message, false); return; }
+      showAuthMsg('Te hemos enviado un email con un link para crear una contraseña nueva.', true);
+    });
+
+    function showResetMsg(msg, ok) {
+      document.getElementById('reset-msg').innerHTML = '<div class="auth-msg ' + (ok ? 'ok' : 'err') + '">' + msg + '</div>';
+    }
+
+    document.getElementById('btn-reset-submit').addEventListener('click', async () => {
+      const newPassword = document.getElementById('reset-password').value;
+      if (!newPassword || newPassword.length < 6) { showResetMsg('Mínimo 6 caracteres.', false); return; }
+      const { error } = await sb.auth.updateUser({ password: newPassword });
+      if (error) { showResetMsg(error.message, false); return; }
+      showResetMsg('Contraseña actualizada. Ya puedes entrar normal.', true);
+      setTimeout(() => goTo('dashboard'), 1500);
+    });
+
+    // Supabase detecta el link de recuperación en la URL y dispara este evento
+    sb.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') goTo('reset');
     });
 
 
