@@ -656,6 +656,15 @@
     .ticker-group.expanded .ticker-chevron { transform: rotate(180deg); }
     .ticker-body { display: none; border-top: 1px solid var(--border); }
     .ticker-group.expanded .ticker-body { display: block; }
+
+    .asset-subrow {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 5px 20px 10px; background: rgba(0,0,0,0.15);
+      font-size: 11px;
+    }
+    .subrow-label { color: var(--muted); letter-spacing: 0.05em; }
+    .subrow-val   { color: var(--text); font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 12px; }
+    .subrow-sep   { color: var(--muted2); }
     @media (max-width: 480px) {
       .ticker-avg { display: none; }
       .ticker-group-header { flex-wrap: wrap; }
@@ -2163,7 +2172,7 @@
         return;
       }
 
-      // Agrupar por TICKER, no por broker
+      // Agrupar por TICKER
       const grouped = {};
       assets.forEach(a => {
         const ticker = (a.ticker || 'SIN TICKER').toUpperCase();
@@ -2175,13 +2184,33 @@
         const items = grouped[ticker];
         const buys  = items.filter(a => (a.type || 'compra') !== 'venta');
         const sells = items.filter(a => a.type === 'venta');
-        const totalBuy  = buys.reduce((s, a) => s + (parseFloat(a.value) || 0), 0);
+
+        const totalBuy  = buys.reduce((s, a)  => s + (parseFloat(a.value) || 0), 0);
         const totalSell = sells.reduce((s, a) => s + (parseFloat(a.value) || 0), 0);
-        const net  = totalBuy - totalSell;
-        const avg  = buys.length ? totalBuy / buys.length : 0;
+        const net = totalBuy - totalSell;
+
+        // ── Estadísticas con qty/precio si están disponibles ──
+        const hasQty    = buys.some(a => a.quantity > 0);
+        const totalQtyBuy  = buys.reduce((s, a)  => s + (parseFloat(a.quantity) || 0), 0);
+        const totalQtySell = sells.reduce((s, a) => s + (parseFloat(a.quantity) || 0), 0);
+        const netQty = totalQtyBuy - totalQtySell;
+        const currency  = buys.find(a => a.currency && a.currency !== 'EUR')?.currency || 'EUR';
+        const hasPrice  = buys.some(a => a.price_local > 0);
+
+        // Precio medio ponderado por acción
+        const totalCostLocal = buys.reduce((s, a) => s + ((parseFloat(a.quantity) || 0) * (parseFloat(a.price_local) || 0)), 0);
+        const avgPriceLocal  = hasQty && totalQtyBuy > 0 ? totalCostLocal / totalQtyBuy : 0;
 
         let countLabel = buys.length + ' compra' + (buys.length !== 1 ? 's' : '');
         if (sells.length > 0) countLabel += ' · ' + sells.length + ' venta' + (sells.length !== 1 ? 's' : '');
+        if (hasQty && netQty > 0) countLabel += ' · ' + netQty.toLocaleString('es-ES') + ' acc.';
+
+        let avgLabel = '';
+        if (hasPrice && avgPriceLocal > 0) {
+          avgLabel = 'Precio medio: ' + avgPriceLocal.toFixed(4) + ' ' + currency;
+        } else if (buys.length > 0) {
+          avgLabel = 'Coste medio: ' + fmtEur(totalBuy / buys.length);
+        }
 
         const group = document.createElement('div');
         group.className = 'ticker-group';
@@ -2194,7 +2223,7 @@
             '<span class="ticker-count">' + countLabel + '</span>' +
           '</div>' +
           '<div class="ticker-right">' +
-            '<span class="ticker-avg">Compra media: ' + (buys.length ? fmtEur(avg) : '—') + '</span>' +
+            '<span class="ticker-avg">' + avgLabel + '</span>' +
             '<span class="ticker-total" style="color:' + (net < 0 ? '#ef4444' : 'var(--accent)') + '">' + fmtEur(net) + '</span>' +
             '<svg class="ticker-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
           '</div>';
@@ -2273,6 +2302,25 @@
           row.appendChild(valueInput);
           row.appendChild(delBtn);
           body.appendChild(row);
+
+          // ── Sub-fila con qty / precio / moneda (si disponibles) ──
+          if (a.quantity > 0 || a.price_local > 0) {
+            const subRow = document.createElement('div');
+            subRow.className = 'asset-subrow';
+            const ccy = a.currency || 'EUR';
+            const qtyVal   = a.quantity   ? a.quantity.toLocaleString('es-ES')   : '—';
+            const priceVal = a.price_local ? a.price_local.toFixed(4) : '—';
+            subRow.innerHTML =
+              '<span class="subrow-label">Cantidad:</span>' +
+              '<span class="subrow-val">' + qtyVal + ' acc.</span>' +
+              '<span class="subrow-sep">·</span>' +
+              '<span class="subrow-label">Precio:</span>' +
+              '<span class="subrow-val" style="color:#fac850">' + priceVal + ' ' + ccy + '</span>' +
+              '<span class="subrow-sep">·</span>' +
+              '<span class="subrow-label">Valor ~EUR:</span>' +
+              '<span class="subrow-val" style="color:var(--accent)">' + fmtEur(a.value || 0) + '</span>';
+            body.appendChild(subRow);
+          }
         });
 
         group.appendChild(body);
@@ -2626,43 +2674,55 @@
       function parseIBReport(text) {
         const trades = [];
 
-        // Buscar la sección "Operaciones" y quedarnos solo con esa parte
-        const opIdx = text.indexOf('Operaciones  Símbolo');
+        const opIdx = text.indexOf('Operaciones');
         if (opIdx === -1) return null;
         const opText = text.slice(opIdx);
 
-        // Regex para líneas de operación:
-        // TICKER  YYYY-MM-DD, HH:MM:SS  CANTIDAD  PRECIO_TRANS  ...
-        // Ejemplo: SCD   2026-05-05, 09:33:56   660   0.1500   0.1400   -99.00   -0.52   ...
-        const tradeRegex = /([A-Z]{2,10})\s+(\d{4}-\d{2}-\d{2}),\s+\d{2}:\d{2}:\d{2}\s+([-\d,.]+)\s+([\d.]+)/g;
+        // ── Detectar moneda de las acciones (CAD, USD, EUR) ──
+        const currencyMatch = text.match(/Acciones\s*([A-Z]{3})\s+[A-Z]{2,}/);
+        const localCurrency = currencyMatch ? currencyMatch[1] : 'USD';
 
-        // Encontrar la sección de totales en EUR para hacer la conversión
-        const eurLine = text.match(/Total en EUR\s+([-\d,.]+)\s+([-\d,.]+)\s+([-\d,.]+)/);
+        // ── Buscar el total en EUR de las operaciones (primera línea "Total en EUR") ──
+        const eurLine = opText.match(/Total en EUR\s+([-\d,.]+)/);
         const totalEurProducts = eurLine ? Math.abs(parseNumIB(eurLine[1])) : null;
-        const totalCadProducts = (() => {
-          const m = text.match(/Total SCD\s+([-\d,.]+)\s+([-\d,.]+)\s+([-\d,.]+)/);
-          return m ? Math.abs(parseNumIB(m[1])) : null;
-        })();
-        const eurPerCad = (totalEurProducts && totalCadProducts && totalCadProducts > 0)
-          ? totalEurProducts / totalCadProducts : null;
+
+        // ── Buscar el total en moneda local: saltar la columna cantidad, coger el coste ──
+        // Formato: "Total SCD   16,770   -2,836.05   ..."
+        //           totalLocalMatch[1]=qty  [2]=coste_local  ← este es el correcto
+        const totalLocalMatch = opText.match(/Total\s+[A-Z]{2,10}\s+([\d,.]+)\s+([-\d,.]+)/);
+        const totalLocalProducts = totalLocalMatch ? Math.abs(parseNumIB(totalLocalMatch[2])) : null;
+
+        const eurPerLocal = (totalEurProducts && totalLocalProducts && totalLocalProducts > 0)
+          ? totalEurProducts / totalLocalProducts : null;
+
+        // ── Regex para líneas de operación ──
+        // TICKER  YYYY-MM-DD, HH:MM:SS  CANTIDAD  PRECIO_TRANS  PRECIO_CIER  PRODUCTOS  ...
+        const tradeRegex = /([A-Z]{2,10})\s+(\d{4}-\d{2}-\d{2}),\s+\d{2}:\d{2}:\d{2}\s+([-\d,.]+)\s+([\d.]+)\s+([\d.]+)\s+([-\d,.]+)/g;
 
         let match;
         while ((match = tradeRegex.exec(opText)) !== null) {
-          const ticker = match[1];
-          const date   = match[2];
-          const qty    = parseNumIB(match[3]);
-          const price  = parseFloat(match[4]);
+          const ticker   = match[1];
+          const date     = match[2];
+          const qty      = parseNumIB(match[3]);
+          const price    = parseFloat(match[4]);
+          const productos = parseNumIB(match[6]); // coste real (negativo = compra)
 
-          // Saltar líneas que no son operaciones de acciones (divisas, etc.)
-          if (['EUR', 'CAD', 'USD', 'GBP', 'Total'].includes(ticker)) continue;
-          // Saltar líneas de totales
-          if (ticker === 'Total' || ticker === 'Fórex') continue;
+          if (['EUR', 'CAD', 'USD', 'GBP', 'CHF', 'Total'].includes(ticker)) continue;
 
-          const type    = qty >= 0 ? 'compra' : 'venta';
-          const valueLocalCcy = Math.abs(qty * price);
-          const valueEur = eurPerCad ? +(valueLocalCcy * eurPerCad).toFixed(2) : 0;
+          const type          = qty >= 0 ? 'compra' : 'venta';
+          const costLocal     = Math.abs(productos); // coste real en moneda local
+          const valueEur      = eurPerLocal ? +(costLocal * eurPerLocal).toFixed(2) : 0;
 
-          trades.push({ ticker, date, qty: Math.abs(qty), price, type, valueEur, valueLocalCcy });
+          trades.push({
+            ticker,
+            date,
+            qty:        Math.abs(qty),
+            price,
+            currency:   localCurrency,
+            costLocal,
+            valueEur,
+            type,
+          });
         }
 
         return trades.length > 0 ? trades : null;
@@ -2684,59 +2744,62 @@
       function showIBReviewPanel(filename, ibTrades) {
         pendingFile = { name: filename };
 
-        document.getElementById('review-filename').textContent = '📄 ' + filename + '   —   Interactive Brokers detectado automáticamente';
+        document.getElementById('review-filename').textContent = '📄 ' + filename + '   —   Interactive Brokers detectado ✓';
         document.getElementById('review-broker').value = 'Interactive Brokers';
-
-        // Ocultamos los selects de mapeo (ya no necesarios para IB)
         document.querySelector('.review-mapping').style.display = 'none';
 
-        // Construimos la vista previa con las operaciones parseadas
         const previewTable = document.getElementById('review-preview-table');
         previewTable.innerHTML = '';
-        ibTrades.slice(0, 6).forEach(t => {
+        ibTrades.slice(0, 8).forEach(t => {
           const div = document.createElement('div');
           div.className = 'review-preview-row';
-          div.style.cssText = 'display:flex;gap:16px;align-items:center;';
+          div.style.cssText = 'display:flex;gap:14px;align-items:center;flex-wrap:wrap;';
+          const eurStr = t.valueEur > 0 ? '~€' + t.valueEur.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
           div.innerHTML =
-            '<strong style="color:var(--text);min-width:50px">' + t.ticker + '</strong>' +
-            '<span>' + t.date + '</span>' +
-            '<span>' + t.qty + ' acc.</span>' +
-            '<span>@ ' + t.price + ' CAD</span>' +
-            '<span style="color:' + (t.type === 'compra' ? '#22c55e' : '#ef4444') + ';font-weight:600">' + t.type.toUpperCase() + '</span>' +
-            '<span style="color:#fac850">' + (t.valueEur > 0 ? '~€' + t.valueEur.toLocaleString('es-ES') : '(' + t.valueLocalCcy.toFixed(2) + ' CAD)') + '</span>';
+            '<strong style="color:var(--text);min-width:44px">' + t.ticker + '</strong>' +
+            '<span style="color:var(--muted)">' + t.date + '</span>' +
+            '<span style="color:var(--text)">' + t.qty.toLocaleString('es-ES') + ' acc.</span>' +
+            '<span style="color:#fac850">@ ' + t.price + ' ' + t.currency + '</span>' +
+            '<span style="color:' + (t.type === 'compra' ? '#22c55e' : '#ef4444') + ';font-weight:700">' + t.type.toUpperCase() + '</span>' +
+            '<span style="color:var(--accent)">' + eurStr + '</span>';
           previewTable.appendChild(div);
         });
-        if (ibTrades.length > 6) {
+        if (ibTrades.length > 8) {
           const more = document.createElement('div');
           more.className = 'review-preview-row';
-          more.textContent = '... y ' + (ibTrades.length - 6) + ' operaciones más';
+          more.style.color = 'var(--muted)';
+          more.textContent = '... y ' + (ibTrades.length - 8) + ' operaciones más';
           previewTable.appendChild(more);
         }
 
-        // Sobreescribir el handler de "Confirmar" para este flujo de IB
         const confirmBtn = document.getElementById('btn-confirm-import');
         const newBtn = confirmBtn.cloneNode(true);
         confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
         newBtn.addEventListener('click', async () => {
           const broker = document.getElementById('review-broker').value.trim() || 'Interactive Brokers';
           const userId = await getUserId();
-          if (!userId) { return; }
+          if (!userId) return;
 
           const toInsert = ibTrades.map(t => ({
-            user_id: userId, ticker: t.ticker, name: t.date,
-            broker, value: t.valueEur > 0 ? t.valueEur : t.valueLocalCcy,
-            type: t.type,
+            user_id:     userId,
+            ticker:      t.ticker,
+            name:        t.date,
+            broker,
+            value:       t.valueEur > 0 ? t.valueEur : t.costLocal,
+            type:        t.type,
+            quantity:    t.qty,
+            price_local: t.price,
+            currency:    t.currency,
           }));
 
           await sb.from('assets').insert(toInsert);
-          await sb.from('imports').insert({ user_id: userId, filename: filename, broker, row_count: ibTrades.length });
+          await sb.from('imports').insert({ user_id: userId, filename, broker, row_count: ibTrades.length });
 
-          // Restaurar el select de mapeo para la próxima vez
           document.querySelector('.review-mapping').style.display = '';
           document.getElementById('import-review').classList.add('hidden');
           renderAssets();
           renderImportsHistory();
-          showStatus('Importadas ' + ibTrades.length + ' operaciones de Interactive Brokers.', true);
+          showStatus('✓ Importadas ' + ibTrades.length + ' operaciones de Interactive Brokers con precio y cantidad.', true);
         });
 
         document.getElementById('import-review').classList.remove('hidden');
