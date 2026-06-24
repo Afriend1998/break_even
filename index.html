@@ -2785,8 +2785,8 @@
           }
 
           // ── Detectar si es un informe de MyInvestor ──
-          if ((fullText.includes('MyInvestor') || fullText.includes('ANDBANK') || fullText.includes('Andbank')) &&
-              (fullText.includes('participaciones') || fullText.includes('Participaciones'))) {
+          if (fullText.includes('MyInvestor') || fullText.includes('ANDBANK') || fullText.includes('Andbank') ||
+              fullText.includes('MyInvestor Banco')) {
             const myiData = parseMyInvestorReport(fullText);
             if (myiData && myiData.positions.length > 0) {
               showMyInvestorReviewPanel(file.name, myiData, fullText);
@@ -3174,37 +3174,60 @@
       // ════════════════════════════════════════════
       function parseMyInvestorReport(text) {
         const result = { positions: [] };
-        const norm   = text.replace(/\s+/g, ' ');
+        const norm = text.replace(/\s+/g, ' ');
 
-        // Estrategia 1: nombre fondo (caps con FD/FUND/ACC/EU) + participaciones + valor
-        const fundRx = /([A-Z][A-Z\s\.&]{4,60}(?:FD|FUND|FI|ACC?|EU|EUR|USD)(?:\s+[A-Z]{1,5})*)\s+([\d,]+)\s+([\d.,]+)/g;
+        // ── Estrategia 1: ISIN + nombre fondo + divisa + títulos + valor ──
+        // Formato real: "LU1598719752 COBAS INTERNATIONAL FD P AC EU EUR 0.9019 158,0900 € 158,0900 €"
+        const isinRx = /([A-Z]{2}[A-Z0-9]{10})\s+([A-Z][A-Z0-9\s\.\-&]{3,60}(?:FD|FUND|FI|ACC?|EU|EUR|INT|INTL|GLOB|WORLD)(?:\s+[A-Z0-9\.]{1,6})*)\s+(?:EUR|USD|GBP)\s+([\d.]+)\s+([\d,.]+)\s*€/gi;
         let m;
-        while ((m = fundRx.exec(norm)) !== null) {
-          const name   = m[1].trim();
-          const partic = parseEuropeanNum(m[2]);
-          const value  = parseEuropeanNum(m[3]);
-          if (partic > 0 && partic < 100000 && value > 10 && !result.positions.find(p => p.name === name)) {
-            result.positions.push({ name, participaciones: partic, valueEur: value, broker: 'MyInvestor' });
+        while ((m = isinRx.exec(norm)) !== null) {
+          const isin  = m[1];
+          const name  = m[2].trim().replace(/\s+/g,' ');
+          const qty   = parseFloat(m[3]);
+          const value = parseEuropeanNum(m[4]);
+          if (qty > 0 && value > 0 && !result.positions.find(p => p.isin === isin)) {
+            result.positions.push({ isin, name, participaciones: qty, valueEur: value, broker: 'MyInvestor' });
           }
         }
 
-        // Estrategia 2: proximidad a la palabra "participaciones"
+        // ── Estrategia 2: buscar sección "Posiciones" y leer línea con valor ──
         if (result.positions.length === 0) {
-          const lower = norm.toLowerCase();
-          let idx = lower.indexOf('participaci');
-          while (idx !== -1) {
-            const ctx  = norm.slice(Math.max(0, idx - 250), idx + 100);
-            const nums = [...ctx.matchAll(/([\d.,]+)/g)].map(n => parseEuropeanNum(n[1])).filter(n => n > 0);
-            const fM   = ctx.match(/([A-Z][A-Z\s\.]{5,60}(?:FD|FUND|FI|ACC?|EU)[A-Z\s]*)/);
-            const fundName = fM ? fM[1].trim() : 'Fondo MyInvestor';
-            const partic   = nums.find(n => n > 0 && n < 1000);
-            const val      = nums.find(n => n > 50 && n < 500000 && n !== partic);
-            if (partic && val && !result.positions.find(p => p.name === fundName)) {
-              result.positions.push({ name: fundName, participaciones: partic, valueEur: val, broker: 'MyInvestor' });
+          const posIdx = norm.indexOf('Posiciones');
+          if (posIdx !== -1) {
+            const posText = norm.slice(posIdx, posIdx + 600);
+            // Buscar ISIN solo
+            const isinOnly = /([A-Z]{2}[A-Z0-9]{10})/g;
+            while ((m = isinOnly.exec(posText)) !== null) {
+              const isin    = m[1];
+              const after   = posText.slice(m.index);
+              const numRx   = /([\d.]+)\s+([\d,.]+)/;
+              const nums    = after.match(numRx);
+              if (nums) {
+                const qty   = parseFloat(nums[1]);
+                const value = parseEuropeanNum(nums[2]);
+                const nameM = after.match(/[A-Z]{2}[A-Z0-9]{10}\s+([A-Z][A-Z0-9\s\.&]{3,50}?)\s+(?:EUR|USD)/);
+                const name  = nameM ? nameM[1].trim() : 'Fondo ' + isin;
+                if (qty > 0 && value > 0 && !result.positions.find(p => p.isin === isin)) {
+                  result.positions.push({ isin, name, participaciones: qty, valueEur: value, broker: 'MyInvestor' });
+                }
+              }
             }
-            idx = lower.indexOf('participaci', idx + 1);
           }
         }
+
+        // ── Estrategia 3 (fallback): nombre fondo caps + qty + valor ──
+        if (result.positions.length === 0) {
+          const fundRx = /([A-Z][A-Z\s\.&]{4,60}(?:FD|FUND|FI|ACC?|EU|EUR|USD)(?:\s+[A-Z]{1,5})*)\s+([\d.]+)\s+([\d.,]+)/g;
+          while ((m = fundRx.exec(norm)) !== null) {
+            const name  = m[1].trim();
+            const partic= parseEuropeanNum(m[2]);
+            const value = parseEuropeanNum(m[3]);
+            if (partic > 0 && partic < 100000 && value > 10 && !result.positions.find(p => p.name === name)) {
+              result.positions.push({ name, participaciones: partic, valueEur: value, broker: 'MyInvestor' });
+            }
+          }
+        }
+
         return result;
       }
 
@@ -3230,7 +3253,8 @@
             div.style.cssText = 'display:flex;gap:14px;align-items:center;flex-wrap:wrap;';
             div.innerHTML =
               '<strong style="color:var(--text);flex:1">' + pos.name + '</strong>' +
-              '<span style="color:var(--muted)">' + pos.participaciones.toLocaleString('es-ES') + ' participaciones</span>' +
+              (pos.isin ? '<span style="color:var(--muted);font-size:10px;font-family:monospace">' + pos.isin + '</span>' : '') +
+              '<span style="color:var(--muted)">' + pos.participaciones.toLocaleString('es-ES', {maximumFractionDigits:4}) + ' títulos</span>' +
               '<span style="color:var(--accent);font-weight:700">€' + pos.valueEur.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span>';
             previewTable.appendChild(div);
           });
