@@ -1969,7 +1969,7 @@
     });
 
 
-    document.getElementById('card-portfolio').addEventListener('click',         () => goTo('portfolio'));
+    document.getElementById('card-portfolio').addEventListener('click', () => { goTo('portfolio'); initAllocChart(); });
     document.getElementById('card-brokers').addEventListener('click',           () => goTo('brokers'));
     document.getElementById('card-fire').addEventListener('click',              () => goTo('fire'));
     document.getElementById('card-impuestos').addEventListener('click',         () => goTo('impuestos'));
@@ -3766,83 +3766,144 @@
       });
     }
 
-    function initAllocChart() {
-      const positions = [];
+    const CRYPTO_TICKERS = new Set(['BTC','ETH','XRP','XLM','SOL','BNB','ADA','DOT','AVAX','MATIC','FLR','DOGE','LTC','LINK','UNI','ATOM','NEAR','ALGO','VET','ICP','FIL','HBAR','XTZ','EOS','ZEC','DASH','TRX','USDT','USDC','BUSD','DAI']);
+    const CRYPTO_BROKERS = new Set(['bybit','binance','coindepo','kraken','coinbase','kucoin','crypto.com']);
 
+    function isCrypto(ticker, broker) {
+      return CRYPTO_TICKERS.has((ticker||'').toUpperCase()) ||
+             CRYPTO_BROKERS.has((broker||'').toLowerCase());
+    }
+
+    let allocChart = null;
+
+    async function initAllocChart() {
       const allocWrap = document.querySelector('.alloc-wrap');
-      if (positions.length === 0) {
-        allocWrap.innerHTML = '<div class="assets-empty" style="grid-column:1/-1">Sin posiciones añadidas todavía. Usa "Mis Activos" para empezar.</div>';
+      if (!allocWrap) return;
+
+      const assets = await loadAssets();
+      const buysOnly = assets.filter(a => (a.type || 'compra') === 'compra');
+
+      // Agrupar por ticker → valor neto
+      const grouped = {};
+      assets.forEach(a => {
+        const t = (a.ticker || '?').toUpperCase();
+        if (!grouped[t]) grouped[t] = { ticker: t, broker: a.broker, net: 0 };
+        const v = parseFloat(a.value) || 0;
+        grouped[t].net += (a.type === 'venta' ? -v : a.type === 'dividendo' ? 0 : v);
+      });
+
+      const allPos = Object.values(grouped).filter(p => p.net > 0).sort((a,b) => b.net - a.net);
+      const tradPos   = allPos.filter(p => !isCrypto(p.ticker, p.broker));
+      const cryptoPos = allPos.filter(p =>  isCrypto(p.ticker, p.broker));
+
+      if (allPos.length === 0) {
+        allocWrap.innerHTML = '<div class="assets-empty" style="grid-column:1/-1">Sin posiciones todavía. Importa tus activos para ver la distribución.</div>';
         return;
       }
 
-      const total = positions.reduce((s, p) => s + p.value, 0);
-      const totalFmt = '€' + total.toLocaleString('es-ES');
+      const COLORS = ['#3d7eff','#22c55e','#fac850','#06b6d4','#8b5cf6','#ec4899','#f97316','#14b8a6','#84cc16','#f43f5e','#a78bfa','#fb923c'];
 
-      // Build legend
-      const legend = document.getElementById('alloc-legend');
-      positions.forEach(p => {
-        const pct = ((p.value / total) * 100).toFixed(1);
-        const row = document.createElement('div');
-        row.className = 'legend-row';
-        row.innerHTML =
-          '<span class="legend-dot" style="background:' + p.color + '"></span>' +
-          '<span class="legend-ticker">' + p.ticker + '</span>' +
-          '<span class="legend-name">' + p.name + '</span>' +
-          '<span class="legend-val">~€' + p.value.toLocaleString('es-ES') + '</span>' +
-          '<span class="legend-pct" style="color:' + p.color + '">' + pct + '%</span>';
-        legend.appendChild(row);
+      // Añadir color
+      allPos.forEach((p,i) => p.color = COLORS[i % COLORS.length]);
+
+      // Reconstruir HTML de la sección
+      allocWrap.innerHTML = `
+        <div class="alloc-chart-wrap" style="max-width:240px">
+          <canvas id="alloc-chart"></canvas>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="tab-bar" style="margin-bottom:14px">
+            <button class="tab-btn active" data-atab="trad" style="flex:1">
+              <span class="tab-dot" style="background:#3d7eff"></span>Tradicional
+            </button>
+            <button class="tab-btn" data-atab="crypto" style="flex:1">
+              <span class="tab-dot" style="background:#f7931a"></span>Cripto
+            </button>
+          </div>
+          <div id="alloc-legend-trad"   class="alloc-legend"></div>
+          <div id="alloc-legend-crypto" class="alloc-legend" style="display:none"></div>
+        </div>`;
+
+      function buildLegend(containerId, positions, total) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        if (positions.length === 0) {
+          container.innerHTML = '<div class="assets-empty" style="padding:12px 0;font-size:12px">Sin posiciones en esta categoría.</div>';
+          return;
+        }
+        positions.forEach(p => {
+          const pct = total > 0 ? ((p.net / total) * 100).toFixed(1) : '0.0';
+          const row = document.createElement('div');
+          row.className = 'legend-row';
+          row.innerHTML =
+            '<span class="legend-dot" style="background:' + p.color + '"></span>' +
+            '<span class="legend-ticker">' + p.ticker + '</span>' +
+            '<span class="legend-name">' + (p.broker || '') + '</span>' +
+            '<span class="legend-val">~€' + Math.round(p.net).toLocaleString('es-ES') + '</span>' +
+            '<span class="legend-pct" style="color:' + p.color + '">' + pct + '%</span>';
+          container.appendChild(row);
+        });
+      }
+
+      const grandTotal = allPos.reduce((s,p) => s + p.net, 0);
+      buildLegend('alloc-legend-trad',   tradPos,   grandTotal);
+      buildLegend('alloc-legend-crypto', cryptoPos, grandTotal);
+
+      // Tabs de la leyenda
+      allocWrap.querySelectorAll('.tab-btn[data-atab]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          allocWrap.querySelectorAll('.tab-btn[data-atab]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById('alloc-legend-trad').style.display   = btn.dataset.atab === 'trad'   ? '' : 'none';
+          document.getElementById('alloc-legend-crypto').style.display = btn.dataset.atab === 'crypto' ? '' : 'none';
+        });
       });
 
-      // Center neon text plugin
+      // Donut
+      const totalFmt = '€' + Math.round(grandTotal).toLocaleString('es-ES');
       const centerPlugin = {
         id: 'centerText',
         afterDraw(chart) {
           const { ctx, chartArea: { left, right, top, bottom } } = chart;
-          const cx = (left + right) / 2;
-          const cy = (top + bottom) / 2;
+          const cx = (left + right) / 2, cy = (top + bottom) / 2;
           ctx.save();
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.shadowColor = '#00ff6a';
-          ctx.shadowBlur = 20;
-          ctx.font = 'bold 23px "Space Grotesk", sans-serif';
-          ctx.fillStyle = '#00ff6a';
-          ctx.fillText(totalFmt, cx, cy - 11);
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.shadowColor = '#3d7eff'; ctx.shadowBlur = 16;
+          ctx.font = 'bold 18px "Space Grotesk",sans-serif';
+          ctx.fillStyle = '#dde8ff';
+          ctx.fillText(totalFmt, cx, cy - 10);
           ctx.shadowBlur = 0;
-          ctx.font = '500 10px "Inter", sans-serif';
+          ctx.font = '500 9px "Inter",sans-serif';
           ctx.fillStyle = '#3a4d6a';
-          ctx.fillText('TOTAL CARTERA', cx, cy + 13);
+          ctx.fillText('TOTAL', cx, cy + 10);
           ctx.restore();
         }
       };
 
-      const ctx = document.getElementById('alloc-chart').getContext('2d');
-      new Chart(ctx, {
+      if (allocChart) { allocChart.destroy(); allocChart = null; }
+      const canvas = document.getElementById('alloc-chart');
+      if (!canvas) return;
+      allocChart = new Chart(canvas.getContext('2d'), {
         type: 'doughnut',
         plugins: [centerPlugin],
         data: {
-          labels: positions.map(p => p.ticker),
+          labels: allPos.map(p => p.ticker),
           datasets: [{
-            data:            positions.map(p => p.value),
-            backgroundColor: positions.map(p => p.color),
+            data:            allPos.map(p => p.net),
+            backgroundColor: allPos.map(p => p.color),
             borderColor:     '#06080e',
             borderWidth:     3,
             hoverOffset:     7,
           }]
         },
         options: {
-          cutout: '65%',
-          responsive: true,
-          maintainAspectRatio: true,
+          cutout: '65%', responsive: true, maintainAspectRatio: true,
           plugins: {
             legend: { display: false },
             tooltip: {
               backgroundColor: '#0c1018', borderColor: '#1a2235', borderWidth: 1,
               titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 12,
-              callbacks: {
-                label: c => '  ' + c.label + ':  €' + c.raw.toLocaleString('es-ES') +
-                            '  (' + ((c.raw / total) * 100).toFixed(1) + '%)'
-              }
+              callbacks: { label: c => '  ' + c.label + ':  ~€' + Math.round(c.raw).toLocaleString('es-ES') + '  (' + ((c.raw / grandTotal) * 100).toFixed(1) + '%)' }
             }
           }
         }
