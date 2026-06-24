@@ -1832,7 +1832,7 @@
       <!-- Banner dividendos -->
       <div class="tip-banner" id="tip-dividendos">
         <span style="font-size:16px;flex-shrink:0">💡</span>
-        <span class="tip-text"><strong style="color:#fac850">Dividendos:</strong> si el parser automático no los detecta, añádelos tú manualmente con el tipo "Dividendo". Revolut a veces cambia el formato del PDF sin avisar.</span>
+        <span class="tip-text"><strong style="color:#fac850">Recuerda:</strong> si importas un PDF, no añadas las mismas operaciones manualmente — se duplicarán. Usa una sola vía. Los dividendos que no detecte el parser añádelos tú manualmente con el tipo "Dividendo".</span>
         <button class="tip-close" onclick="dismissTip()" title="Cerrar">&times;</button>
       </div>
 
@@ -2290,14 +2290,17 @@
         }
 
         // net = compras - ventas
-        // net > 0 → aún tienes dinero invertido (posición abierta) → azul
-        // net < 0 → recuperaste más de lo que metiste (beneficio realizado) → verde
-        // net = 0 → break even o posición cerrada sin ganancia → gris
-        const isClosed  = sells.length > 0 && netQty <= 0;
-        const netColor  = net < 0 ? '#22c55e' : net === 0 ? 'var(--muted)' : 'var(--accent)';
+        // net < 0 → recuperaste más de lo que metiste → beneficio realizado → verde
+        // net > 0 y posición cerrada (netQty ≤ 0) → perdiste dinero → rojo
+        // net > 0 y posición abierta (netQty > 0) → aún invertido → azul
+        const isClosed  = sells.length > 0 && netQty <= 0.001;
+        const netColor  = net < 0 ? '#22c55e'
+                        : (isClosed ? '#ef4444' : 'var(--accent)');
         const netLabel  = net < 0
           ? '+' + fmtEur(Math.abs(net)) + ' beneficio'
-          : net === 0 ? 'Break even' : fmtEur(net);
+          : isClosed
+            ? '-' + fmtEur(Math.abs(net)) + ' pérdida'
+            : fmtEur(net);
 
         const group = document.createElement('div');
         group.className = 'ticker-group';
