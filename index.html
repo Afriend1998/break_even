@@ -711,8 +711,9 @@
       letter-spacing: 0.04em; text-transform: uppercase; transition: opacity 0.15s; width: 100%;
     }
     .type-toggle:hover { opacity: 0.8; }
-    .type-toggle.compra { background: rgba(34,197,94,0.14); color: #22c55e; }
-    .type-toggle.venta  { background: rgba(239,68,68,0.14); color: #ef4444; }
+    .type-toggle.compra     { background: rgba(34,197,94,0.14);  color: #22c55e; }
+    .type-toggle.venta      { background: rgba(239,68,68,0.14);  color: #ef4444; }
+    .type-toggle.dividendo  { background: rgba(250,200,80,0.14); color: #fac850; }
 
     .new-type-toggle { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
     .new-type-btn {
@@ -720,8 +721,9 @@
       padding: 10px 0; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
       transition: background 0.15s, color 0.15s;
     }
-    .new-type-btn.active[data-type="compra"] { background: rgba(34,197,94,0.16); color: #22c55e; }
-    .new-type-btn.active[data-type="venta"]  { background: rgba(239,68,68,0.16); color: #ef4444; }
+    .new-type-btn.active[data-type="compra"]    { background: rgba(34,197,94,0.16);  color: #22c55e; }
+    .new-type-btn.active[data-type="venta"]     { background: rgba(239,68,68,0.16);  color: #ef4444; }
+    .new-type-btn.active[data-type="dividendo"] { background: rgba(250,200,80,0.16); color: #fac850; }
     .assets-empty { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
     .asset-hint { font-size: 11px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
     .example-banner {
@@ -1797,6 +1799,7 @@
           <div class="new-type-toggle">
             <button type="button" class="new-type-btn active" data-type="compra">Compra</button>
             <button type="button" class="new-type-btn" data-type="venta">Venta</button>
+            <button type="button" class="new-type-btn" data-type="dividendo">Dividendo</button>
           </div>
           <button id="btn-add-asset" class="add-asset-btn">+ Añadir</button>
         </div>
@@ -2182,8 +2185,9 @@
 
       Object.keys(grouped).sort().forEach(ticker => {
         const items = grouped[ticker];
-        const buys  = items.filter(a => (a.type || 'compra') !== 'venta');
-        const sells = items.filter(a => a.type === 'venta');
+        const buys      = items.filter(a => (a.type || 'compra') === 'compra');
+        const sells     = items.filter(a => a.type === 'venta');
+        const dividends = items.filter(a => a.type === 'dividendo');
 
         const totalBuy  = buys.reduce((s, a)  => s + (parseFloat(a.value) || 0), 0);
         const totalSell = sells.reduce((s, a) => s + (parseFloat(a.value) || 0), 0);
@@ -2204,6 +2208,9 @@
         let countLabel = buys.length + ' compra' + (buys.length !== 1 ? 's' : '');
         if (sells.length > 0) countLabel += ' · ' + sells.length + ' venta' + (sells.length !== 1 ? 's' : '');
         if (hasQty && netQty > 0) countLabel += ' · ' + netQty.toLocaleString('es-ES') + ' acc.';
+        if (dividends.length > 0) countLabel += ' · ' + dividends.length + ' div.';
+
+        const totalDividends = dividends.reduce((s, a) => s + (parseFloat(a.value) || 0), 0);
 
         let avgLabel = '';
         if (hasPrice && avgPriceLocal > 0) {
@@ -2211,6 +2218,16 @@
         } else if (buys.length > 0) {
           avgLabel = 'Coste medio: ' + fmtEur(totalBuy / buys.length);
         }
+
+        // net = compras - ventas
+        // net > 0 → aún tienes dinero invertido (posición abierta) → azul
+        // net < 0 → recuperaste más de lo que metiste (beneficio realizado) → verde
+        // net = 0 → break even o posición cerrada sin ganancia → gris
+        const isClosed  = sells.length > 0 && netQty <= 0;
+        const netColor  = net < 0 ? '#22c55e' : net === 0 ? 'var(--muted)' : 'var(--accent)';
+        const netLabel  = net < 0
+          ? '+' + fmtEur(Math.abs(net)) + ' beneficio'
+          : net === 0 ? 'Break even' : fmtEur(net);
 
         const group = document.createElement('div');
         group.className = 'ticker-group';
@@ -2224,7 +2241,8 @@
           '</div>' +
           '<div class="ticker-right">' +
             '<span class="ticker-avg">' + avgLabel + '</span>' +
-            '<span class="ticker-total" style="color:' + (net < 0 ? '#ef4444' : 'var(--accent)') + '">' + fmtEur(net) + '</span>' +
+            (totalDividends > 0 ? '<span style="font-size:11px;color:#fac850;font-weight:600">💰' + fmtEur(totalDividends) + '</span>' : '') +
+            '<span class="ticker-total" style="color:' + netColor + '">' + netLabel + '</span>' +
             '<svg class="ticker-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
           '</div>';
         header.addEventListener('click', () => group.classList.toggle('expanded'));
@@ -2265,13 +2283,14 @@
             renderAssets();
           });
 
-          const currentType = a.type === 'venta' ? 'venta' : 'compra';
+          const currentType = a.type === 'venta' ? 'venta' : a.type === 'dividendo' ? 'dividendo' : 'compra';
           const typeBtn = document.createElement('button');
           typeBtn.className = 'type-toggle ' + currentType;
-          typeBtn.textContent = currentType === 'venta' ? 'Venta' : 'Compra';
+          typeBtn.textContent = currentType === 'venta' ? 'Venta' : currentType === 'dividendo' ? 'Dividendo' : 'Compra';
           typeBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            const newType = currentType === 'venta' ? 'compra' : 'venta';
+            const cycle = { 'compra': 'venta', 'venta': 'dividendo', 'dividendo': 'compra' };
+            const newType = cycle[currentType] || 'compra';
             await sb.from('assets').update({ type: newType }).eq('id', a.id);
             renderAssets();
           });
@@ -2558,6 +2577,7 @@
       function normalizeType(raw) {
         const v = (raw || '').toString().trim().toLowerCase();
         if (['venta','sell','v','s'].includes(v)) return 'venta';
+        if (['dividendo','dividend','div','d'].includes(v)) return 'dividendo';
         return 'compra';
       }
 
@@ -2834,7 +2854,7 @@
       // PARSER — Revolut (formato inglés "Account Statement")
       // ════════════════════════════════════════════
       function parseRevolutReport(text) {
-        const result = { buys: [], sells: [], positions: [] };
+        const result = { buys: [], sells: [], dividends: [], positions: [] };
         const norm = text.replace(/\s+/g, ' ');
 
         // ── Posiciones actuales (Portfolio breakdown) ──
@@ -2872,6 +2892,16 @@
           if (side === 'sell') result.sells.push(trade); else result.buys.push(trade);
         }
 
+        // ── Dividendos ──
+        // Patrón: "10 Feb 2026 07:30:16 GMT MA Dividend US$0.21 US$0 US$0"
+        const divRx = /(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})\s+\d{2}:\d{2}:\d{2}\s+GMT\s+([A-Z]{2,5})\s+Dividend\s+US\$([\d.]+)/gi;
+        while ((m = divRx.exec(norm)) !== null) {
+          const date   = m[1] + ' ' + m[2] + ' ' + m[3];
+          const ticker = m[4].toUpperCase();
+          const value  = parseFloat(m[5]);
+          result.dividends.push({ date, ticker, valueUSD: value, currency: 'USD', type: 'dividendo' });
+        }
+
         // Fallback formato español antiguo ──
         if (result.buys.length === 0 && result.sells.length === 0) {
           const SKIP = new Set(['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC','EUR','USD','CAD','GBP','CHF']);
@@ -2906,7 +2936,7 @@
         const allTrades = [...revData.buys, ...revData.sells];
 
         document.getElementById('review-filename').textContent =
-          '📄 ' + filename + '   —   Revolut detectado ✓   (' + revData.buys.length + ' compras · ' + revData.sells.length + ' ventas)';
+          '📄 ' + filename + '   —   Revolut detectado ✓   (' + revData.buys.length + ' compras · ' + revData.sells.length + ' ventas' + (revData.dividends.length > 0 ? ' · ' + revData.dividends.length + ' dividendos' : '') + ')';
         document.getElementById('review-broker').value = 'Revolut';
         document.querySelector('.review-mapping').style.display = 'none';
 
@@ -2934,6 +2964,24 @@
               (priceStr ? '<span style="color:#fac850;font-size:11px">' + priceStr + '</span>' : '') +
               '<span style="color:' + (t.type === 'venta' ? '#ef4444' : '#22c55e') + ';font-weight:700;font-size:11px">' + t.type.toUpperCase() + '</span>' +
               '<span style="color:var(--accent);font-size:11px">' + valStr + '</span>';
+            previewTable.appendChild(div);
+          });
+        }
+
+        // Dividendos detectados
+        if (revData.dividends && revData.dividends.length > 0) {
+          const divHdr = document.createElement('div');
+          divHdr.style.cssText = 'margin-top:14px;margin-bottom:6px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#fac850;';
+          divHdr.textContent = '💰 Dividendos detectados';
+          previewTable.appendChild(divHdr);
+          revData.dividends.forEach(d => {
+            const div = document.createElement('div');
+            div.style.cssText = 'display:flex;gap:14px;align-items:center;padding:4px 0;font-size:11px;border-bottom:1px solid var(--border);';
+            div.innerHTML =
+              '<strong style="color:var(--text);min-width:48px">' + d.ticker + '</strong>' +
+              '<span style="color:var(--muted)">' + d.date + '</span>' +
+              '<span style="color:#fac850;font-weight:700">DIVIDENDO</span>' +
+              '<span style="color:#fac850">US$' + d.valueUSD.toFixed(2) + '</span>';
             previewTable.appendChild(div);
           });
         }
@@ -2973,7 +3021,7 @@
 
           const toInsert = [];
 
-          // Importar transacciones
+          // Importar transacciones (compras y ventas)
           allTrades.forEach(t => {
             toInsert.push({
               user_id:     userId,
@@ -2987,6 +3035,23 @@
               currency:    t.currency || 'USD',
             });
           });
+
+          // Importar dividendos
+          if (revData.dividends) {
+            revData.dividends.forEach(d => {
+              toInsert.push({
+                user_id:     userId,
+                ticker:      d.ticker,
+                name:        'Dividendo ' + d.date,
+                broker,
+                value:       d.valueUSD || 0,
+                type:        'dividendo',
+                quantity:    null,
+                price_local: null,
+                currency:    d.currency || 'USD',
+              });
+            });
+          }
 
           if (toInsert.length === 0) {
             document.querySelector('.review-mapping').style.display = '';
