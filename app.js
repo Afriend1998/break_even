@@ -1,4 +1,4 @@
-/* ── SUPABASE ── */
+    /* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -16,7 +16,8 @@
       about:      document.getElementById('screen-about'),
       assets:     document.getElementById('screen-assets'),
       reset:      document.getElementById('screen-reset'),
-      comunidad:  null,
+      comunidad:        null,
+      'portfolio-mauro': document.getElementById('screen-portfolio-mauro'),
     };
     function goTo(target) {
       Object.keys(screens).forEach(key => {
@@ -107,6 +108,11 @@
 
 
     document.getElementById('card-portfolio').addEventListener('click', () => { goTo('portfolio'); initAllocChart(); refreshPortfolio(); });
+    document.getElementById('card-portfolio-mauro').addEventListener('click',   () => goTo('portfolio-mauro'));
+    document.getElementById('btn-back-mauro').addEventListener('click',         () => goTo('dashboard'));
+    document.getElementById('card-mauro-brokers').addEventListener('click',     () => goTo('brokers'));
+    document.getElementById('card-mauro-fire').addEventListener('click',        () => goTo('fire'));
+    document.getElementById('card-mauro-impuestos').addEventListener('click',   () => goTo('impuestos'));
     document.getElementById('card-brokers').addEventListener('click',           () => goTo('brokers'));
     document.getElementById('card-fire').addEventListener('click',              () => goTo('fire'));
     document.getElementById('card-impuestos').addEventListener('click',         () => goTo('impuestos'));
