@@ -2699,7 +2699,13 @@
           });
         });
 
-        if (toInsert.length) await sb.from('assets').insert(toInsert);
+        if (toInsert.length) {
+          const { error: csvErr } = await sb.from('assets').insert(toInsert);
+          if (csvErr) {
+            showStatus('❌ Error al guardar: ' + csvErr.message + ' — ¿estás logueado?', false);
+            return;
+          }
+        }
 
         await sb.from('imports').insert({
           user_id: userId,
@@ -2930,9 +2936,12 @@
             currency:    t.currency,
           }));
 
-          await sb.from('assets').insert(toInsert);
-          await sb.from('imports').insert({ user_id: userId, filename, broker, row_count: ibTrades.length });
-
+          const { error: ibErr } = await sb.from('assets').insert(toInsert);
+          if (ibErr) {
+            showStatus('❌ Error al guardar: ' + ibErr.message + ' — ¿estás logueado?', false);
+            return;
+          }
+          await sb.from('imports').insert({user_id:userId,filename,broker,row_count:ibTrades.length});
           document.querySelector('.review-mapping').style.display = '';
           document.getElementById('import-review').classList.add('hidden');
           renderAssets();
@@ -3152,7 +3161,11 @@
             document.getElementById('import-review').classList.add('hidden'); return;
           }
 
-          await sb.from('assets').insert(toInsert);
+          const { error: insErr } = await sb.from('assets').insert(toInsert);
+          if (insErr) {
+            showStatus('❌ Error al guardar: ' + insErr.message + ' — ¿estás logueado?', false);
+            return;
+          }
           await sb.from('imports').insert({ user_id: userId, filename, broker, row_count: toInsert.length });
           document.querySelector('.review-mapping').style.display = '';
           document.getElementById('import-review').classList.add('hidden');
@@ -3247,7 +3260,11 @@
             const pricePerUnit = pos.participaciones > 0 ? +(pos.valueEur / pos.participaciones).toFixed(4) : null;
             return { user_id: userId, ticker, name: pos.name, broker, value: pos.valueEur, type: 'compra', quantity: pos.participaciones, price_local: pricePerUnit, currency: 'EUR' };
           });
-          await sb.from('assets').insert(toInsert);
+          const { error: myiErr } = await sb.from('assets').insert(toInsert);
+          if (myiErr) {
+            showStatus('❌ Error al guardar: ' + myiErr.message + ' — ¿estás logueado?', false);
+            return;
+          }
           await sb.from('imports').insert({ user_id: userId, filename, broker, row_count: toInsert.length });
           document.querySelector('.review-mapping').style.display = '';
           document.getElementById('import-review').classList.add('hidden');
