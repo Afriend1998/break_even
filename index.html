@@ -907,18 +907,12 @@
       </div>
 
       <div class="metrics-grid">
-        <div class="metric-card editable-card" id="mc-total">
-          <div class="metric-label">
-            Valor total
-            <span class="edit-hint">· clic para editar</span>
-          </div>
+        <div class="metric-card" id="mc-total">
+          <div class="metric-label">En cartera (coste)</div>
           <div class="metric-value" id="mv-total">—</div>
         </div>
-        <div class="metric-card editable-card" id="mc-invested">
-          <div class="metric-label">
-            Invertido
-            <span class="edit-hint">· clic para editar</span>
-          </div>
+        <div class="metric-card" id="mc-invested">
+          <div class="metric-label">Total invertido</div>
           <div class="metric-value" id="mv-invested">—</div>
         </div>
         <div class="metric-card" id="mc-pnl">
@@ -927,7 +921,7 @@
         </div>
         <div class="metric-card">
           <div class="metric-label">Posiciones</div>
-          <div class="metric-value" id="mv-positions">10</div>
+          <div class="metric-value" id="mv-positions">—</div>
         </div>
       </div>
 
@@ -1969,7 +1963,7 @@
     });
 
 
-    document.getElementById('card-portfolio').addEventListener('click', () => { goTo('portfolio'); initAllocChart(); });
+    document.getElementById('card-portfolio').addEventListener('click', () => { goTo('portfolio'); initAllocChart(); refreshPortfolio(); });
     document.getElementById('card-brokers').addEventListener('click',           () => goTo('brokers'));
     document.getElementById('card-fire').addEventListener('click',              () => goTo('fire'));
     document.getElementById('card-impuestos').addEventListener('click',         () => goTo('impuestos'));
@@ -2140,8 +2134,6 @@
       });
     }
 
-    makeEditable('mc-total',    'mv-total',    'be_total',    'Valor actual (€)');
-    makeEditable('mc-invested', 'mv-invested', 'be_invested', 'Capital invertido (€)');
     updatePnL();
 
     /* ── MIS ACTIVOS (Supabase) ── */
@@ -3764,6 +3756,116 @@
           input.addEventListener('click', e => e.stopPropagation());
         });
       });
+    }
+
+    async function refreshPortfolio() {
+      const assets = await loadAssets();
+
+      // ── Calcular métricas ──
+      const grouped = {};
+      assets.forEach(a => {
+        const t = (a.ticker || '?').toUpperCase();
+        if (!grouped[t]) grouped[t] = { ticker:t, broker:a.broker||'', buys:[], sells:[], dividends:[] };
+        if (a.type === 'venta')     grouped[t].sells.push(a);
+        else if (a.type === 'dividendo') grouped[t].dividends.push(a);
+        else                             grouped[t].buys.push(a);
+      });
+
+      let totalInvested = 0, totalSells = 0, openValue = 0, openCount = 0;
+      Object.values(grouped).forEach(g => {
+        const buyVal  = g.buys.reduce((s,a)  => s+(parseFloat(a.value)||0), 0);
+        const sellVal = g.sells.reduce((s,a) => s+(parseFloat(a.value)||0), 0);
+        const net = buyVal - sellVal;
+        totalInvested += buyVal;
+        totalSells    += sellVal;
+        if (net > 0) { openValue += net; openCount++; }
+      });
+
+      const pnl = totalSells - (totalInvested - openValue); // ganancia realizada
+
+      const elT = document.getElementById('mv-total');
+      const elI = document.getElementById('mv-invested');
+      const elP = document.getElementById('mv-pnl');
+      const elN = document.getElementById('mv-positions');
+      if (elT) elT.textContent = fmtEur(openValue);
+      if (elI) elI.textContent = fmtEur(totalInvested);
+      if (elP) {
+        elP.textContent = (pnl >= 0 ? '+' : '') + fmtEur(pnl);
+        elP.className = 'metric-value ' + (pnl >= 0 ? 'positive' : 'negative');
+      }
+      if (elN) elN.textContent = openCount;
+
+      // ── Posiciones actuales ──
+      const panelTrad   = document.getElementById('panel-trad');
+      const panelCrypto = document.getElementById('panel-crypto');
+      if (!panelTrad || !panelCrypto) return;
+
+      const openPositions = Object.values(grouped).filter(g => {
+        const buyVal  = g.buys.reduce((s,a)  => s+(parseFloat(a.value)||0), 0);
+        const sellVal = g.sells.reduce((s,a) => s+(parseFloat(a.value)||0), 0);
+        return (buyVal - sellVal) > 0;
+      }).map(g => {
+        const buyVal  = g.buys.reduce((s,a)  => s+(parseFloat(a.value)||0), 0);
+        const sellVal = g.sells.reduce((s,a) => s+(parseFloat(a.value)||0), 0);
+        const buyQty  = g.buys.reduce((s,a)  => s+(parseFloat(a.quantity)||0), 0);
+        const sellQty = g.sells.reduce((s,a) => s+(parseFloat(a.quantity)||0), 0);
+        const netQty  = buyQty - sellQty;
+        const totalCost = g.buys.reduce((s,a) => s+((parseFloat(a.quantity)||0)*(parseFloat(a.price_local)||0)), 0);
+        const avgPrice  = buyQty > 0 ? totalCost / buyQty : 0;
+        const ccy       = g.buys[0]?.currency || 'USD';
+        return { ticker:g.ticker, broker:g.broker, net:buyVal-sellVal, netQty, avgPrice, ccy, isCrypto:isCrypto(g.ticker, g.broker) };
+      }).sort((a,b) => b.net - a.net);
+
+      function buildPositionRow(p) {
+        const row = document.createElement('div');
+        row.className = 'position-row';
+        row.innerHTML =
+          '<span class="pos-ticker">' + p.ticker + '</span>' +
+          '<span class="pos-broker">' +
+            (p.netQty > 0 ? p.netQty.toLocaleString('es-ES',{maximumFractionDigits:4}) + ' acc.' : '') +
+            (p.avgPrice > 0 ? ' · @ ' + p.avgPrice.toFixed(4) + ' ' + p.ccy : '') +
+            ' · ' + p.broker +
+          '</span>' +
+          '<span class="pos-value">~' + fmtEur(p.net) + '</span>';
+        return row;
+      }
+
+      const trad   = openPositions.filter(p => !p.isCrypto);
+      const crypto = openPositions.filter(p =>  p.isCrypto);
+
+      panelTrad.innerHTML   = trad.length   ? '' : '<div class="assets-empty">Sin posiciones tradicionales abiertas.</div>';
+      panelCrypto.innerHTML = crypto.length ? '' : '<div class="assets-empty">Sin posiciones cripto abiertas.</div>';
+      trad.forEach(p   => panelTrad.appendChild(buildPositionRow(p)));
+      crypto.forEach(p => panelCrypto.appendChild(buildPositionRow(p)));
+
+      // ── Resumen por estrategia ──
+      const stratSection = document.querySelector('.section-card .section-title');
+      const stratCard = [...document.querySelectorAll('.section-card')].find(el => el.querySelector('.section-title')?.textContent === 'Resumen por estrategia');
+      if (stratCard) {
+        stratCard.innerHTML = '<div class="section-title">Resumen por estrategia</div>';
+        const totalDivs = assets.filter(a=>a.type==='dividendo').reduce((s,a)=>s+(parseFloat(a.value)||0),0);
+
+        const groups = [
+          { label:'📈 Posiciones abiertas', items: openPositions, total: openValue },
+          { label:'💰 Dividendos cobrados', items: [], total: totalDivs, extra: true },
+          { label:'✅ Beneficio realizado',  items: [], total: pnl,       extra: true },
+        ];
+
+        groups.forEach(g => {
+          const div = document.createElement('div');
+          div.className = 'strategy-group';
+          div.innerHTML = '<div class="strategy-header"><span class="strategy-label">'+g.label+'</span><span class="strategy-total" style="color:'+(g.total>=0?'var(--accent)':'#ef4444')+'">'+fmtEur(g.total)+'</span></div>';
+          if (!g.extra && g.items.length > 0) {
+            g.items.forEach(p => {
+              const r = document.createElement('div');
+              r.className = 'strategy-row';
+              r.innerHTML = '<span class="str-ticker">'+p.ticker+'</span><span class="str-name">'+p.broker+'</span><span class="str-val">'+fmtEur(p.net)+'</span>';
+              div.appendChild(r);
+            });
+          }
+          stratCard.appendChild(div);
+        });
+      }
     }
 
     const CRYPTO_TICKERS = new Set(['BTC','ETH','XRP','XLM','SOL','BNB','ADA','DOT','AVAX','MATIC','FLR','DOGE','LTC','LINK','UNI','ATOM','NEAR','ALGO','VET','ICP','FIL','HBAR','XTZ','EOS','ZEC','DASH','TRX','USDT','USDC','BUSD','DAI']);
