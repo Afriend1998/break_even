@@ -2660,8 +2660,10 @@
           }
 
           // ── Detectar si es un informe de Revolut ──
-          if (fullText.includes('Otras transacciones de la cuenta de corretaje') ||
-              fullText.includes('Unidades que se han vendido')) {
+          if ((fullText.includes('USD Transactions') || fullText.includes('EUR Transactions') ||
+               fullText.includes('Otras transacciones de la cuenta de corretaje') ||
+               fullText.includes('Unidades que se han vendido')) &&
+              (fullText.includes('Revolut') || fullText.includes('Account Statement'))) {
             const revData = parseRevolutReport(fullText);
             if (revData && (revData.buys.length > 0 || revData.sells.length > 0)) {
               showRevolutReviewPanel(file.name, revData, fullText);
@@ -2829,70 +2831,73 @@
       }
 
       // ════════════════════════════════════════════
-      // PARSER — Revolut
+      // PARSER — Revolut (formato inglés "Account Statement")
       // ════════════════════════════════════════════
       function parseRevolutReport(text) {
-        const result = { buys: [], sells: [] };
-        const norm   = text.replace(/\s+/g, ' ');
-        const SKIP   = new Set(['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC','EUR','USD','CAD','GBP','CHF']);
+        const result = { buys: [], sells: [], positions: [] };
+        const norm = text.replace(/\s+/g, ' ');
 
-        const buyIdx  = norm.indexOf('Otras transacciones de la cuenta de corretaje');
-        const sellIdx = norm.indexOf('Unidades que se han vendido');
+        // ── Posiciones actuales (Portfolio breakdown) ──
+        // Patrón: TICKER Company ISIN qty US$price US$value pct%
+        // Ej: "PLTR Palantir US69608A1088 0.11119292 US$119.52 US$13.29 4.23%"
+        const posRx = /([A-Z]{2,5})\s+[\w\s]+?\s+US[A-Z0-9]{10,12}\s+([\d.]+)\s+US\$([\d.]+)\s+US\$([\d.]+)\s+([\d.]+)%/g;
+        let m;
+        while ((m = posRx.exec(norm)) !== null) {
+          const ticker = m[1];
+          if (['USD','EUR','GBP'].includes(ticker)) continue;
+          result.positions.push({
+            ticker,
+            qty:      parseFloat(m[2]),
+            price:    parseFloat(m[3]),
+            valueUSD: parseFloat(m[4]),
+            pct:      parseFloat(m[5]),
+          });
+        }
 
-        // ── COMPRAS ──
-        if (buyIdx !== -1) {
-          const buysText = norm.slice(buyIdx, sellIdx !== -1 ? sellIdx : norm.length);
+        // ── Transacciones ──
+        // Patrón: "20 Jan 2026 15:03:24 GMT ASTS Trade - Market 26.00889863 US$112.50 Sell US$2,925.99 US$0.01 US$0"
+        const MONTHS = { Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12 };
+        const tradeRx = /(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{4})\s+\d{2}:\d{2}:\d{2}\s+GMT\s+([A-Z]{2,5})\s+Trade\s*-\s*[\w\s]+?([\d.]+)\s+US\$([\d.]+)\s+(Buy|Sell)\s+US\$([\d.,]+)/gi;
 
-          // Estrategia 1: date + ticker + price + qty + amount
-          const r1 = /(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4})\s+(?:Compra de acciones\s+)?(?:Compra\s+)?([A-Z]{2,6})\s+€?([\d.,]+)\s+([\d.,]+)\s+[−\-]?€?([\d.,]+)/gi;
-          let m;
-          while ((m = r1.exec(buysText)) !== null) {
-            const ticker = m[2].toUpperCase();
-            if (SKIP.has(ticker)) continue;
-            result.buys.push({
-              date: m[1].trim(), ticker,
-              price:    Math.abs(parseEuropeanNum(m[3])),
-              qty:      Math.abs(parseEuropeanNum(m[4])),
-              valueEur: Math.abs(parseEuropeanNum(m[5])),
-              type: 'compra',
-            });
+        while ((m = tradeRx.exec(norm)) !== null) {
+          const day    = m[1]; const mon = m[2]; const year = m[3];
+          const ticker = m[4].toUpperCase();
+          const qty    = parseFloat(m[5]);
+          const price  = parseFloat(m[6]);
+          const side   = m[7].toLowerCase();
+          const value  = parseFloat(m[8].replace(/,/g, ''));
+          const date   = day + ' ' + mon + ' ' + year;
+
+          const trade = { date, ticker, qty, price, valueUSD: value, currency: 'USD', type: side === 'sell' ? 'venta' : 'compra' };
+          if (side === 'sell') result.sells.push(trade); else result.buys.push(trade);
+        }
+
+        // Fallback formato español antiguo ──
+        if (result.buys.length === 0 && result.sells.length === 0) {
+          const SKIP = new Set(['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC','EUR','USD','CAD','GBP','CHF']);
+          const buyIdx  = norm.indexOf('Otras transacciones de la cuenta de corretaje');
+          const sellIdx = norm.indexOf('Unidades que se han vendido');
+          if (buyIdx !== -1) {
+            const buysText = norm.slice(buyIdx, sellIdx !== -1 ? sellIdx : norm.length);
+            const r1 = /(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4})\s+(?:Compra de acciones\s+)?(?:Compra\s+)?([A-Z]{2,6})\s+€?([\d.,]+)\s+([\d.,]+)\s+[−\-]?€?([\d.,]+)/gi;
+            let ms;
+            while ((ms = r1.exec(buysText)) !== null) {
+              const ticker = ms[2].toUpperCase(); if (SKIP.has(ticker)) continue;
+              result.buys.push({ date:ms[1].trim(), ticker, price:Math.abs(parseEuropeanNum(ms[3])), qty:Math.abs(parseEuropeanNum(ms[4])), valueUSD:Math.abs(parseEuropeanNum(ms[5])), currency:'EUR', type:'compra' });
+            }
           }
-
-          // Estrategia 2 (fallback): date + ticker + amount
-          if (result.buys.length === 0) {
-            const r2 = /(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4})[^A-Z]{0,40}([A-Z]{2,6})[^€\d−\-]{0,30}[−\-]?€?([\d.,]+)/gi;
-            while ((m = r2.exec(buysText)) !== null) {
-              const ticker = m[2].toUpperCase();
-              if (SKIP.has(ticker)) continue;
-              result.buys.push({ date:m[1].trim(), ticker, price:0, qty:0, valueEur:Math.abs(parseEuropeanNum(m[3])), type:'compra' });
+          if (sellIdx !== -1) {
+            const sellsText = norm.slice(sellIdx);
+            const r1 = /([A-Z]{2,6})\s+(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4})\s+(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4})\s+([\d.,]+)\s+€?([\d.,]+)\s+€?([\d.,]+)/gi;
+            let ms;
+            while ((ms = r1.exec(sellsText)) !== null) {
+              const ticker = ms[1].toUpperCase(); if (SKIP.has(ticker)) continue;
+              const qty=parseEuropeanNum(ms[4]), sp=parseEuropeanNum(ms[6]);
+              result.sells.push({ ticker, buyDate:ms[2].trim(), sellDate:ms[3].trim(), qty, buyPrice:parseEuropeanNum(ms[5]), sellPrice:sp, valueUSD:+(qty*sp).toFixed(2), currency:'EUR', type:'venta' });
             }
           }
         }
 
-        // ── VENTAS ──
-        if (sellIdx !== -1) {
-          const sellsText = norm.slice(sellIdx);
-
-          // Estrategia 1: TICKER + buyDate + sellDate + qty + buyPrice + sellPrice
-          const r1 = /([A-Z]{2,6})\s+(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4})\s+(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4})\s+([\d.,]+)\s+€?([\d.,]+)\s+€?([\d.,]+)/gi;
-          let m;
-          while ((m = r1.exec(sellsText)) !== null) {
-            const ticker = m[1].toUpperCase();
-            if (SKIP.has(ticker)) continue;
-            const qty=parseEuropeanNum(m[4]), buyPrice=parseEuropeanNum(m[5]), sellPrice=parseEuropeanNum(m[6]);
-            result.sells.push({ ticker, buyDate:m[2].trim(), sellDate:m[3].trim(), qty, buyPrice, sellPrice, valueEur:+(qty*sellPrice).toFixed(2), type:'venta' });
-          }
-
-          // Estrategia 2 (fallback): TICKER + dos fechas + importe
-          if (result.sells.length === 0) {
-            const r2 = /([A-Z]{2,6})\s+(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4})\s+(\d{1,2}\s+(?:ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\.?\s+\d{4})\s+(?:[\d.,]+\s+)?€?([\d.,]+)/gi;
-            while ((m = r2.exec(sellsText)) !== null) {
-              const ticker = m[1].toUpperCase();
-              if (SKIP.has(ticker)) continue;
-              result.sells.push({ ticker, buyDate:m[2].trim(), sellDate:m[3].trim(), qty:0, buyPrice:0, sellPrice:0, valueEur:parseEuropeanNum(m[4]), type:'venta' });
-            }
-          }
-        }
         return result;
       }
 
@@ -2910,38 +2915,52 @@
 
         if (allTrades.length === 0) {
           previewTable.innerHTML =
-            '<div style="color:#fac850;font-size:12px;padding:8px 0">⚠️ No se detectaron operaciones automáticamente. Revisa el texto o añádelas manualmente.</div>' +
+            '<div style="color:#fac850;font-size:12px;padding:8px 0">⚠️ No se detectaron operaciones. Texto extraído abajo para revisión manual.</div>' +
             '<div class="pdf-text-output" style="max-height:180px;margin-top:8px">' + rawText.slice(0, 2000).replace(/</g, '&lt;') + '</div>';
         } else {
-          allTrades.slice(0, 12).forEach(t => {
+          allTrades.forEach(t => {
             const div = document.createElement('div');
             div.className = 'review-preview-row';
-            div.style.cssText = 'display:flex;gap:14px;align-items:center;flex-wrap:wrap;';
-            const eurStr   = t.valueEur > 0 ? '€' + t.valueEur.toLocaleString('es-ES', {minimumFractionDigits:2}) : '—';
-            const qtyStr   = t.qty > 0 ? t.qty.toLocaleString('es-ES') + ' acc.' : '';
-            const priceStr = t.type === 'venta' && t.sellPrice > 0 ? '@ €' + t.sellPrice.toFixed(2) : t.price > 0 ? '@ €' + t.price.toFixed(2) : '';
-            const dateStr  = t.type === 'venta' ? (t.sellDate || '—') : (t.date || '—');
+            div.style.cssText = 'display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--border);';
+            const ccy     = t.currency || 'USD';
+            const valStr  = t.valueUSD > 0 ? ccy + '$' + t.valueUSD.toLocaleString('en-US', {minimumFractionDigits:2}) : '—';
+            const qtyStr  = t.qty > 0 ? t.qty.toLocaleString('en-US', {maximumFractionDigits:5}) + ' acc.' : '';
+            const priceStr= t.price > 0 ? '@ ' + ccy + '$' + t.price.toFixed(2) : '';
+            const dateStr = t.sellDate || t.date || '—';
             div.innerHTML =
               '<strong style="color:var(--text);min-width:48px">' + t.ticker + '</strong>' +
-              '<span style="color:var(--muted)">' + dateStr + '</span>' +
-              (qtyStr   ? '<span style="color:var(--text)">' + qtyStr + '</span>' : '') +
-              (priceStr ? '<span style="color:#fac850">' + priceStr + '</span>' : '') +
-              '<span style="color:' + (t.type === 'venta' ? '#ef4444' : '#22c55e') + ';font-weight:700">' + t.type.toUpperCase() + '</span>' +
-              '<span style="color:var(--accent)">' + eurStr + '</span>';
+              '<span style="color:var(--muted);font-size:11px">' + dateStr + '</span>' +
+              (qtyStr   ? '<span style="color:var(--text);font-size:11px">' + qtyStr + '</span>' : '') +
+              (priceStr ? '<span style="color:#fac850;font-size:11px">' + priceStr + '</span>' : '') +
+              '<span style="color:' + (t.type === 'venta' ? '#ef4444' : '#22c55e') + ';font-weight:700;font-size:11px">' + t.type.toUpperCase() + '</span>' +
+              '<span style="color:var(--accent);font-size:11px">' + valStr + '</span>';
             previewTable.appendChild(div);
           });
-          if (allTrades.length > 12) {
-            const more = document.createElement('div');
-            more.className = 'review-preview-row'; more.style.color = 'var(--muted)';
-            more.textContent = '... y ' + (allTrades.length - 12) + ' operaciones más';
-            previewTable.appendChild(more);
-          }
         }
 
-        // Aviso KO/PLTR
+        // Posiciones actuales si existen
+        if (revData.positions && revData.positions.length > 0) {
+          const hdr = document.createElement('div');
+          hdr.style.cssText = 'margin-top:14px;margin-bottom:6px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);';
+          hdr.textContent = 'Posiciones actuales detectadas (portfolio breakdown)';
+          previewTable.appendChild(hdr);
+          revData.positions.forEach(pos => {
+            const div = document.createElement('div');
+            div.style.cssText = 'display:flex;gap:14px;align-items:center;padding:4px 0;font-size:11px;';
+            div.innerHTML =
+              '<strong style="color:var(--text);min-width:48px">' + pos.ticker + '</strong>' +
+              '<span style="color:var(--muted)">' + pos.qty.toLocaleString('en-US', {maximumFractionDigits:5}) + ' acc.</span>' +
+              '<span style="color:#fac850">@ US$' + pos.price.toFixed(2) + '</span>' +
+              '<span style="color:var(--accent)">= US$' + pos.valueUSD.toFixed(2) + '</span>' +
+              '<span style="color:var(--muted)">(' + pos.pct + '%)</span>';
+            previewTable.appendChild(div);
+          });
+        }
+
+        // Aviso KO/PLTR si tienen fecha anterior
         const note = document.createElement('div');
         note.style.cssText = 'margin-top:10px;padding:8px 12px;border:1px solid rgba(250,200,80,0.25);border-radius:6px;font-size:11px;color:#fac850;line-height:1.6;';
-        note.textContent = '⚠️ KO y PLTR no aparecen en este extracto (comprados antes de enero 2026). Añádelos manualmente si los necesitas.';
+        note.textContent = '⚠️ Los valores están en USD. KO y PLTR aparecen solo en el portfolio breakdown (posiciones actuales), no en transacciones si se compraron antes de enero 2026.';
         previewTable.appendChild(note);
 
         const confirmBtn = document.getElementById('btn-confirm-import');
@@ -2951,21 +2970,29 @@
         newBtn.addEventListener('click', async () => {
           const broker = document.getElementById('review-broker').value.trim() || 'Revolut';
           const userId = await getUserId(); if (!userId) return;
-          if (allTrades.length === 0) {
+
+          const toInsert = [];
+
+          // Importar transacciones
+          allTrades.forEach(t => {
+            toInsert.push({
+              user_id:     userId,
+              ticker:      t.ticker,
+              name:        t.sellDate ? 'Venta ' + t.sellDate : t.date || '',
+              broker,
+              value:       t.valueUSD || 0,
+              type:        t.type,
+              quantity:    t.qty > 0 ? t.qty : null,
+              price_local: t.price > 0 ? t.price : null,
+              currency:    t.currency || 'USD',
+            });
+          });
+
+          if (toInsert.length === 0) {
             document.querySelector('.review-mapping').style.display = '';
             document.getElementById('import-review').classList.add('hidden'); return;
           }
-          const toInsert = allTrades.map(t => ({
-            user_id:     userId,
-            ticker:      t.ticker,
-            name:        t.type === 'venta' ? 'Compra: ' + (t.buyDate || '') + ' · Venta: ' + (t.sellDate || '') : (t.date || ''),
-            broker,
-            value:       t.valueEur > 0 ? t.valueEur : 0,
-            type:        t.type,
-            quantity:    t.qty > 0 ? t.qty : null,
-            price_local: t.type === 'venta' ? (t.sellPrice > 0 ? t.sellPrice : null) : (t.price > 0 ? t.price : null),
-            currency:    'EUR',
-          }));
+
           await sb.from('assets').insert(toInsert);
           await sb.from('imports').insert({ user_id: userId, filename, broker, row_count: toInsert.length });
           document.querySelector('.review-mapping').style.display = '';
