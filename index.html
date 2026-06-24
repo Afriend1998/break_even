@@ -147,17 +147,6 @@
           <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
 
-        <!-- COMUNIDAD -->
-        <div class="nav-card col-span-2" id="card-comunidad" style="background:#0e1a0e;border-color:#1a3a1a;">
-          <div class="nav-card-icon" style="background:rgba(34,197,94,0.1)">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="6" cy="6" r="3" stroke="#22c55e" stroke-width="1.3"/><circle cx="13" cy="6" r="2.5" stroke="#22c55e" stroke-width="1.3"/><path d="M1 15c0-2.761 2.239-4 5-4s5 1.239 5 4" stroke="#22c55e" stroke-width="1.3" stroke-linecap="round"/><path d="M13 11c1.657 0 3 1 3 3" stroke="#22c55e" stroke-width="1.3" stroke-linecap="round"/></svg>
-          </div>
-          <div class="nav-card-body">
-            <div class="nav-card-title" style="color:#22c55e">Comunidad</div>
-            <div class="nav-card-sub">Carteras públicas · Miguel · Mauro</div>
-          </div>
-          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none" style="color:#22c55e"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
 
       </div>
     </div>
@@ -601,103 +590,6 @@
             </a>
           </div>
 
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- ─── SCREEN: COMUNIDAD ─── -->
-  <div class="screen hidden" id="screen-comunidad">
-    <div class="comunidad-inner">
-
-      <div class="port-header">
-        <button class="btn-back" id="btn-back-comunidad">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M12 7H2M6 3L2 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          Volver
-        </button>
-        <div class="port-name">COMUNIDAD</div>
-      </div>
-
-      <p style="font-size:12px;color:var(--muted);margin-bottom:24px;line-height:1.6">Carteras públicas de la comunidad. Aprende de otros inversores, compara estrategias y descubre cómo gestionan su patrimonio.</p>
-
-      <!-- ── MIGUEL ── -->
-      <div class="investor-card" id="inv-miguel">
-        <div class="investor-header" onclick="toggleInvestor('inv-miguel','#3d7eff')">
-          <div class="investor-avatar" style="background:linear-gradient(135deg,#1e3a8a,#3d7eff)">M</div>
-          <div class="investor-info">
-            <div class="investor-name">Miguel <span style="font-size:12px;font-weight:400;color:var(--muted)">@malonsoarnedo</span></div>
-            <div class="investor-desc">Emprendedor · UME · Inversor activo en bolsa, cripto y fondos. Buscando la independencia financiera.</div>
-            <div class="investor-tags">
-              <span class="investor-tag">📈 Crecimiento</span>
-              <span class="investor-tag">💰 Dividendos</span>
-              <span class="investor-tag">🚀 Cripto</span>
-              <span class="investor-tag">🎯 FIRE</span>
-            </div>
-          </div>
-          <div class="investor-stats">
-            <div class="istat"><div class="istat-label">Posiciones</div><div class="istat-val" id="mig-pos" style="color:#3d7eff">—</div></div>
-            <div class="istat"><div class="istat-label">En cartera</div><div class="istat-val" id="mig-val" style="color:#3d7eff">—</div></div>
-            <div class="istat"><div class="istat-label">Resultado</div><div class="istat-val" id="mig-pnl">—</div></div>
-          </div>
-        </div>
-        <div class="investor-body">
-          <div class="investor-tabs">
-            <button class="inv-tab active" style="border-bottom-color:#3d7eff" onclick="invTab(this,'mig-pos-panel')">Posiciones</button>
-            <button class="inv-tab" onclick="invTab(this,'mig-brokers-panel')">Brokers</button>
-          </div>
-          <div class="inv-panel active" id="mig-pos-panel">
-            <div class="pos-list" id="mig-pos-list"><div style="color:var(--muted);font-size:12px">Cargando...</div></div>
-          </div>
-          <div class="inv-panel" id="mig-brokers-panel">
-            <div class="broker-grid-small">
-              <div class="broker-card-small"><div class="broker-logo-small" style="background:#6E46E6">RV</div><div><div class="broker-name-small">Revolut</div><div class="broker-desc-small">Acciones sin comisiones</div><a href="https://revolut.com/referral/?referral-code=malonsoarnedo!JUN1-26-AR" target="_blank" class="broker-link-small ref">Referido →</a></div></div>
-              <div class="broker-card-small"><div class="broker-logo-small" style="background:#8B0000">IB</div><div><div class="broker-name-small">Interactive Brokers</div><div class="broker-desc-small">Mercados globales</div><a href="#" class="broker-link-small">Abrir →</a></div></div>
-              <div class="broker-card-small"><div class="broker-logo-small" style="background:#C41E3A">MI</div><div><div class="broker-name-small">MyInvestor</div><div class="broker-desc-small">Fondos indexados</div><a href="#" class="broker-link-small">Abrir →</a></div></div>
-              <div class="broker-card-small"><div class="broker-logo-small" style="background:#F7A600">BY</div><div><div class="broker-name-small">Bybit</div><div class="broker-desc-small">Cripto spot y futuros</div><a href="#" class="broker-link-small">Abrir →</a></div></div>
-            </div>
-            <div style="margin-top:14px;padding:10px 14px;background:rgba(61,127,255,0.06);border:1px solid rgba(61,127,255,0.2);border-radius:8px;font-size:11px;color:var(--muted)">
-              🤖 <a href="https://t.me/MyPersonalInvest_bot" target="_blank" style="color:#3d7eff;text-decoration:none">@MyPersonalInvest_bot</a> — asistente de inversión en Telegram · gratis el primer mes
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── MAURO ── -->
-      <div class="investor-card mauro" id="inv-mauro">
-        <div class="investor-header" onclick="toggleInvestor('inv-mauro','#fac850')">
-          <div class="investor-avatar" style="background:linear-gradient(135deg,#78350f,#fac850)">Ma</div>
-          <div class="investor-info">
-            <div class="investor-name" style="color:#fac850">Mauro <span style="font-size:12px;font-weight:400;color:var(--muted)">@mauro_inv</span></div>
-            <div class="investor-desc">Inversor en fondos indexados y gestión activa. Estrategia largo plazo con diversificación global.</div>
-            <div class="investor-tags">
-              <span class="investor-tag" style="border-color:rgba(250,200,80,0.3);color:#fac850">📊 Fondos</span>
-              <span class="investor-tag" style="border-color:rgba(250,200,80,0.3);color:#fac850">🌍 Global</span>
-              <span class="investor-tag" style="border-color:rgba(250,200,80,0.3);color:#fac850">📅 Largo plazo</span>
-            </div>
-          </div>
-          <div class="investor-stats">
-            <div class="istat"><div class="istat-label">Posiciones</div><div class="istat-val" style="color:#fac850">5</div></div>
-            <div class="istat"><div class="istat-label">En cartera</div><div class="istat-val" style="color:#fac850">€10.000</div></div>
-            <div class="istat"><div class="istat-label">Resultado</div><div class="istat-val" style="color:#22c55e">+€480</div></div>
-          </div>
-        </div>
-        <div class="investor-body">
-          <div class="investor-tabs">
-            <button class="inv-tab active" style="border-bottom-color:#fac850" onclick="invTab(this,'mau-pos-panel')">Posiciones</button>
-            <button class="inv-tab" onclick="invTab(this,'mau-brokers-panel')">Brokers</button>
-          </div>
-          <div class="inv-panel active" id="mau-pos-panel">
-            <div class="pos-list" id="mau-pos-list"></div>
-          </div>
-          <div class="inv-panel" id="mau-brokers-panel">
-            <div class="broker-grid-small">
-              <div class="broker-card-small"><div class="broker-logo-small" style="background:#6E46E6">RV</div><div><div class="broker-name-small">Revolut</div><div class="broker-desc-small">Acciones sin comisiones</div><a href="https://revolut.com/referral/?referral-code=malonsoarnedo!JUN1-26-AR" target="_blank" class="broker-link-small ref">Referido →</a></div></div>
-              <div class="broker-card-small"><div class="broker-logo-small" style="background:#C41E3A">MI</div><div><div class="broker-name-small">MyInvestor</div><div class="broker-desc-small">Fondos indexados</div><a href="#" class="broker-link-small">Abrir →</a></div></div>
-              <div class="broker-card-small"><div class="broker-logo-small" style="background:#FF6200">DG</div><div><div class="broker-name-small">DeGiro</div><div class="broker-desc-small">ETFs a bajo coste</div><a href="#" class="broker-link-small">Abrir →</a></div></div>
-              <div class="broker-card-small"><div class="broker-logo-small" style="background:#1a1a1a;border:1px solid #333">TR</div><div><div class="broker-name-small">Trade Republic</div><div class="broker-desc-small">Bonos al 4%</div><a href="#" class="broker-link-small">Abrir →</a></div></div>
-            </div>
-          </div>
         </div>
       </div>
 
