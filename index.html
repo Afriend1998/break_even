@@ -2513,14 +2513,14 @@
     // Parsea números en formato europeo (1.234,56) o americano (1,234.56) o con símbolo de moneda
     function parseEuropeanNum(str) {
       if (!str && str !== 0) return 0;
-      let s = String(str).trim().replace(/[€$£%\s]/g, '');
+      let s = String(str).trim().replace(/[€$£%\s\u2212]/g, '');
       if (!s) return 0;
-      // Formato europeo: 1.234,56 o 1.234.567,89
-      if (/^\-?[\d.]+,\d{1,2}$/.test(s)) return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+      // Formato europeo con cualquier nº de decimales: 158,0900 o 1.234,56
+      if (/^\-?[\d.]+,\d+$/.test(s)) return parseFloat(s.replace(/\./g, '').replace(',', '.'));
       // Formato americano con comas de miles: 1,234.56
       if (/^\-?[\d,]+\.\d+$/.test(s)) return parseFloat(s.replace(/,/g, ''));
-      // Solo comas como miles: 16,000
-      if (/^\-?[\d,]+$/.test(s) && s.includes(',')) return parseFloat(s.replace(/,/g, ''));
+      // Solo comas como miles anglosajón (máx 3 dígitos tras coma): 16,000
+      if (/^\-?[\d,]+$/.test(s) && s.includes(',') && !/,\d{4}/.test(s)) return parseFloat(s.replace(/,/g, ''));
       return parseFloat(s.replace(',', '.'));
     }
 
