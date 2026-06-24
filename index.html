@@ -1823,8 +1823,22 @@
         </div>
       </div>
 
-      <!-- Grouped by broker -->
-      <div id="assets-container"></div>
+      <!-- Buscador + tabs -->
+      <div class="section-card" style="padding:16px 20px;margin-bottom:0;border-bottom:none;border-radius:10px 10px 0 0;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <div style="position:relative;flex:1;min-width:160px;">
+            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:0.4" width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4"/><path d="M10 10l2.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            <input type="text" id="assets-search" placeholder="Buscar ticker..." style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px 8px 30px;color:var(--text);font-family:Inter,sans-serif;font-size:12px;outline:none;">
+          </div>
+          <div style="display:flex;gap:4px;">
+            <button class="assets-filter-btn active" data-filter="all"    style="font-size:11px;padding:6px 12px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);cursor:pointer;">Todo</button>
+            <button class="assets-filter-btn"        data-filter="compra" style="font-size:11px;padding:6px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg);color:var(--muted);cursor:pointer;">Posiciones</button>
+            <button class="assets-filter-btn"        data-filter="dividendo" style="font-size:11px;padding:6px 12px;border:1px solid var(--border);border-radius:5px;background:var(--bg);color:#fac850;cursor:pointer;">💰 Dividendos</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="assets-container" style="border-top:1px solid var(--border);"></div>
 
     </div>
   </div>
@@ -2149,6 +2163,51 @@
       const assets = await loadAssets();
       container.innerHTML = '';
 
+      // ── Filtros activos ──
+      const searchVal  = (document.getElementById('assets-search')?.value || '').trim().toUpperCase();
+      const activeFilter = document.querySelector('.assets-filter-btn.active')?.dataset.filter || 'all';
+
+      // ── Vista especial: Dividendos ──
+      if (activeFilter === 'dividendo') {
+        const divAssets = assets.filter(a => a.type === 'dividendo');
+        if (divAssets.length === 0) {
+          container.innerHTML = '<div class="assets-empty" style="padding:32px">No hay dividendos registrados. Importa un extracto de Revolut para añadirlos automáticamente.</div>';
+          return;
+        }
+        // Agrupar por ticker
+        const byTicker = {};
+        divAssets.forEach(a => {
+          const t = (a.ticker || '?').toUpperCase();
+          if (!byTicker[t]) byTicker[t] = [];
+          byTicker[t].push(a);
+        });
+        Object.keys(byTicker).filter(t => !searchVal || t.includes(searchVal)).sort().forEach(ticker => {
+          const divs   = byTicker[ticker].sort((a,b) => (a.name||'').localeCompare(b.name||''));
+          const total  = divs.reduce((s,a) => s + (parseFloat(a.value)||0), 0);
+          const ccy    = divs[0]?.currency || 'USD';
+          const group  = document.createElement('div');
+          group.className = 'ticker-group expanded';
+          group.innerHTML =
+            '<div class="ticker-group-header" style="cursor:default">' +
+              '<div class="ticker-left"><span class="ticker-symbol">' + ticker + '</span><span class="ticker-count">' + divs.length + ' pago' + (divs.length !== 1 ? 's' : '') + '</span></div>' +
+              '<div class="ticker-right"><span style="color:#fac850;font-family:Space Grotesk,sans-serif;font-size:14px;font-weight:700">💰 ' + ccy + '$' + total.toFixed(2) + ' total</span></div>' +
+            '</div>' +
+            '<div class="ticker-body" style="display:block">' +
+              divs.map(d => {
+                const fecha = (d.name || '').replace('Dividendo ', '');
+                return '<div style="display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border);font-size:12px;">' +
+                  '<span style="color:var(--muted);min-width:100px">' + fecha + '</span>' +
+                  '<span style="color:#fac850;font-weight:700">DIVIDENDO</span>' +
+                  '<span style="color:var(--accent);margin-left:auto;font-family:Space Grotesk,sans-serif;font-weight:700">' + ccy + '$' + (parseFloat(d.value)||0).toFixed(2) + '</span>' +
+                  '<span style="color:var(--muted);font-size:10px">' + (d.broker||'') + '</span>' +
+                '</div>';
+              }).join('') +
+            '</div>';
+          container.appendChild(group);
+        });
+        return;
+      }
+
       if (assets.length === 0) {
         const exampleWrap = document.createElement('div');
         exampleWrap.innerHTML =
@@ -2183,7 +2242,7 @@
         grouped[ticker].push(a);
       });
 
-      Object.keys(grouped).sort().forEach(ticker => {
+      Object.keys(grouped).sort().filter(ticker => !searchVal || ticker.includes(searchVal)).forEach(ticker => {
         const items = grouped[ticker];
         const buys      = items.filter(a => (a.type || 'compra') === 'compra');
         const sells     = items.filter(a => a.type === 'venta');
@@ -2456,6 +2515,22 @@
 
     function initAssetsScreen() {
       populateBrokerSuggestions();
+
+      // ── Buscador y filtros ──
+      document.getElementById('assets-search').addEventListener('input', () => renderAssets());
+      document.querySelectorAll('.assets-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.assets-filter-btn').forEach(b => {
+            b.classList.remove('active');
+            b.style.background = 'var(--bg)';
+            b.style.color = b.dataset.filter === 'dividendo' ? '#fac850' : 'var(--muted)';
+          });
+          btn.classList.add('active');
+          btn.style.background = 'var(--surface)';
+          btn.style.color = btn.dataset.filter === 'dividendo' ? '#fac850' : 'var(--text)';
+          renderAssets();
+        });
+      });
 
       let selectedNewType = 'compra';
       document.querySelectorAll('.new-type-btn').forEach(btn => {
