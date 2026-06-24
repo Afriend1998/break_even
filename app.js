@@ -16,7 +16,7 @@
       about:      document.getElementById('screen-about'),
       assets:     document.getElementById('screen-assets'),
       reset:      document.getElementById('screen-reset'),
-      comunidad:  document.getElementById('screen-comunidad'),
+      comunidad:  null,
     };
     function goTo(target) {
       Object.keys(screens).forEach(key => {
@@ -109,7 +109,6 @@
     document.getElementById('card-brokers').addEventListener('click',           () => goTo('brokers'));
     document.getElementById('card-fire').addEventListener('click',              () => goTo('fire'));
     document.getElementById('card-impuestos').addEventListener('click',         () => goTo('impuestos'));
-    document.getElementById('card-comunidad').addEventListener('click',         () => { goTo('comunidad'); loadComunidad(); });
     document.getElementById('btn-back').addEventListener('click',               () => goTo('dashboard'));
     document.getElementById('btn-back-brokers').addEventListener('click',       () => goTo('dashboard'));
     document.getElementById('card-about').addEventListener('click',             () => goTo('about'));
@@ -119,7 +118,6 @@
     document.getElementById('btn-back-libros').addEventListener('click',        () => goTo('portfolio'));
     document.getElementById('card-libros').addEventListener('click',            () => goTo('libros'));
     document.getElementById('btn-back-impuestos').addEventListener('click',     () => goTo('dashboard'));
-    document.getElementById('btn-back-comunidad').addEventListener('click',     () => goTo('dashboard'));
 
     /* ── FIRE CALCULATOR ── */
     function calcFIRE() {
@@ -1880,90 +1878,6 @@
       banner.classList.add('hiding');
       setTimeout(() => banner.remove(), 350);
       localStorage.setItem('be_tip_div_dismissed', '1');
-    }
-
-    // ══════════════════════════════════════════════
-    // COMUNIDAD
-    // ══════════════════════════════════════════════
-    const MAURO_POSITIONS = [
-      { ticker:'VWCE',  name:'Vanguard FTSE All-World ETF',         value:3500, pct:35, color:'#fac850' },
-      { ticker:'COBAS', name:'Cobas Internacional FD P AC EU',       value:2200, pct:22, color:'#f59e0b' },
-      { ticker:'FSEM',  name:'Fundsmith Equity Fund T Acc',          value:1800, pct:18, color:'#d97706' },
-      { ticker:'IWDA',  name:'iShares Core MSCI World ETF',          value:1500, pct:15, color:'#b45309' },
-      { ticker:'AGGH',  name:'iShares Core Global Agg Bond ETF',     value:1000, pct:10, color:'#92400e' },
-    ];
-
-    function toggleInvestor(id, accentColor) {
-      const card = document.getElementById(id);
-      card.classList.toggle('open');
-    }
-
-    function invTab(btn, panelId) {
-      const body = btn.closest('.investor-body');
-      body.querySelectorAll('.inv-tab').forEach(b => { b.classList.remove('active'); b.style.borderBottomColor = 'transparent'; });
-      body.querySelectorAll('.inv-panel').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      const accent = btn.closest('.investor-card').classList.contains('mauro') ? '#fac850' : '#3d7eff';
-      btn.style.borderBottomColor = accent;
-      document.getElementById(panelId).classList.add('active');
-    }
-
-    async function loadComunidad() {
-      // ── Datos de Miguel desde Supabase ──
-      const assets = await loadAssets();
-      const grouped = {};
-      assets.forEach(a => {
-        const t = (a.ticker||'?').toUpperCase();
-        if (!grouped[t]) grouped[t] = { ticker:t, broker:a.broker||'', buys:0, sells:0 };
-        const v = parseFloat(a.value)||0;
-        if (a.type === 'venta') grouped[t].sells += v;
-        else if (a.type !== 'dividendo') grouped[t].buys += v;
-      });
-      const openPos = Object.values(grouped).filter(g => (g.buys - g.sells) > 0)
-        .map(g => ({ ticker:g.ticker, broker:g.broker, net: g.buys - g.sells }))
-        .sort((a,b) => b.net - a.net);
-      const total   = openPos.reduce((s,p) => s + p.net, 0);
-      const totalSells = Object.values(grouped).reduce((s,g) => s + g.sells, 0);
-      const totalBuys  = Object.values(grouped).reduce((s,g) => s + g.buys, 0);
-      const pnl = totalSells - (totalBuys - total);
-
-      document.getElementById('mig-pos').textContent = openPos.length;
-      document.getElementById('mig-val').textContent = fmtEur(total);
-      const pnlEl = document.getElementById('mig-pnl');
-      pnlEl.textContent = (pnl >= 0 ? '+' : '') + fmtEur(pnl);
-      pnlEl.style.color = pnl >= 0 ? '#22c55e' : '#ef4444';
-
-      const COLORS = ['#3d7eff','#22c55e','#fac850','#06b6d4','#8b5cf6','#ec4899','#f97316','#14b8a6'];
-      const list = document.getElementById('mig-pos-list');
-      list.innerHTML = '';
-      openPos.forEach((p, i) => {
-        const pct = total > 0 ? ((p.net / total) * 100).toFixed(1) : '0';
-        const row = document.createElement('div');
-        row.className = 'pos-item';
-        row.innerHTML =
-          '<span class="pos-dot" style="background:' + COLORS[i % COLORS.length] + '"></span>' +
-          '<span class="pos-ticker2">' + p.ticker + '</span>' +
-          '<span class="pos-fname">' + p.broker + '</span>' +
-          '<span class="pos-pct2" style="color:' + COLORS[i % COLORS.length] + '">' + pct + '%</span>' +
-          '<span class="pos-val2">' + fmtEur(p.net) + '</span>';
-        list.appendChild(row);
-      });
-
-      // ── Datos de Mauro (estáticos) ──
-      const mauList = document.getElementById('mau-pos-list');
-      mauList.innerHTML = '';
-      const mauTotal = MAURO_POSITIONS.reduce((s,p) => s + p.value, 0);
-      MAURO_POSITIONS.forEach(p => {
-        const row = document.createElement('div');
-        row.className = 'pos-item';
-        row.innerHTML =
-          '<span class="pos-dot" style="background:' + p.color + '"></span>' +
-          '<span class="pos-ticker2" style="color:#fac850">' + p.ticker + '</span>' +
-          '<span class="pos-fname">' + p.name + '</span>' +
-          '<span class="pos-pct2" style="color:' + p.color + '">' + p.pct + '%</span>' +
-          '<span class="pos-val2" style="color:#fac850">€' + p.value.toLocaleString('es-ES') + '</span>';
-        mauList.appendChild(row);
-      });
     }
 
     window.addEventListener('load', () => {
