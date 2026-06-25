@@ -62,28 +62,15 @@
     function setupUI(email) {
       isAdmin = (email === ADMIN_EMAIL);
 
-      // ── MI PORTFOLIO: visible solo para usuarios normales ──
+      // MI PORTFOLIO: visible solo para usuarios normales
       const myCard = document.getElementById('card-my-portfolio');
       if (myCard) myCard.style.display = isAdmin ? 'none' : '';
 
-      // ── Portfolio Miguel: badge diferente según quién entra ──
-      const migCard = document.getElementById('card-portfolio');
-      if (migCard) {
-        const badge = migCard.querySelector('.card-badge');
-        if (badge) badge.innerHTML = isAdmin
-          ? '<span class="card-badge-dot"></span>Cartera activa'
-          : '<span class="card-badge-dot"></span>Cartera pública';
-      }
+      // card-assets (importar/editar activos de Miguel) solo visible para admin
+      const assetsCard = document.getElementById('card-assets');
+      if (assetsCard) assetsCard.style.display = isAdmin ? '' : 'none';
 
-      // ── Dentro del portfolio de Miguel: ocultar secciones admin-only ──
-      const adminOnly = ['card-libros', 'card-blog', 'card-about', 'card-assets'];
-      adminOnly.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = isAdmin ? '' : 'none';
-      });
-
-      // ── Para usuarios normales: ocultar btn de PDF y live prices en assets ──
-      // (pueden usar sus propios activos sin restricción)
+      // Todo lo demás (Libros, Blog, Sobre mí) visible para todos — lectura pública
     }
 
     /* ── AUTH FLOW ── */
@@ -193,14 +180,16 @@
     document.getElementById('card-impuestos').addEventListener('click',         () => goTo('impuestos'));
     document.getElementById('btn-back').addEventListener('click',               () => goTo('dashboard'));
     document.getElementById('btn-back-brokers').addEventListener('click',       () => goTo('dashboard'));
+    let assetsFrom = 'portfolio';
+
     document.getElementById('card-about').addEventListener('click',             () => goTo('about'));
     document.getElementById('btn-back-about').addEventListener('click',         () => goTo('portfolio'));
-    document.getElementById('card-assets').addEventListener('click',            () => goTo('assets'));
-    document.getElementById('btn-back-assets').addEventListener('click',        () => goTo('portfolio'));
+    document.getElementById('card-assets').addEventListener('click',            () => { assetsFrom = 'portfolio'; goTo('assets'); });
+    document.getElementById('btn-back-assets').addEventListener('click',        () => goTo(assetsFrom));
     document.getElementById('btn-back-libros').addEventListener('click',        () => goTo('portfolio'));
     document.getElementById('card-my-portfolio').addEventListener('click',     () => goTo('my-portfolio'));
     document.getElementById('btn-back-my-portfolio').addEventListener('click', () => goTo('dashboard'));
-    document.getElementById('card-my-assets').addEventListener('click',        () => goTo('assets'));
+    document.getElementById('card-my-assets').addEventListener('click',        () => { assetsFrom = 'my-portfolio'; goTo('assets'); });
     document.getElementById('btn-back-blog').addEventListener('click',      () => goTo('portfolio'));
     document.getElementById('card-libros').addEventListener('click',        () => goTo('libros'));
     document.getElementById('btn-back-impuestos').addEventListener('click',     () => goTo('dashboard'));
