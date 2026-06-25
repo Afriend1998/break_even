@@ -77,7 +77,7 @@
       <p class="dash-top-label">¿Qué quieres ver?</p>
       <div class="dash-grid">
 
-        <!-- Portfolio MIGUEL — col span 2 -->
+        <!-- Portfolio MIGUEL -->
         <div class="portfolio-card col-span-2" id="card-portfolio">
           <div class="card-badge"><span class="card-badge-dot"></span>Cartera activa</div>
           <div class="card-title">PORTFOLIO MIGUEL</div>
@@ -87,8 +87,55 @@
           </div>
         </div>
 
-        <!-- Portfolio MAURO — col span 2 -->
-        <div class="portfolio-card col-span-2" id="card-portfolio-mauro" style="border-color:rgba(250,200,80,0.25)">
+        <!-- Brokers -->
+        <div class="nav-card" id="card-brokers">
+          <div class="nav-card-icon"><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><rect x="1" y="5" width="15" height="10" rx="2" stroke="#3d7eff" stroke-width="1.3"/><path d="M5 5V4a3.5 3.5 0 017 0v1" stroke="#3d7eff" stroke-width="1.3" stroke-linecap="round"/><circle cx="8.5" cy="10" r="1.4" fill="#3d7eff"/></svg></div>
+          <div class="nav-card-body">
+            <div class="nav-card-title">Brokers & Exchanges</div>
+            <div class="nav-card-sub">Bolsa · Cripto · Referidos</div>
+          </div>
+          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+
+        <div class="nav-card disabled">
+          <div class="nav-card-icon"><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="6.5" stroke="#3d7eff" stroke-width="1.3"/><path d="M8.5 5v3.5l2 1.5" stroke="#3d7eff" stroke-width="1.3" stroke-linecap="round"/></svg></div>
+          <div class="nav-card-body">
+            <div class="nav-card-title">Cartera Dividendos</div>
+            <div class="nav-card-sub">Renta pasiva · Yield</div>
+          </div>
+          <span class="badge-soon">Pronto</span>
+        </div>
+
+        <div class="nav-card" id="card-fire">
+          <div class="nav-card-icon"><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M8.5 2C6 5 4 7 4 10a4.5 4.5 0 009 0c0-3-2-5-4.5-8z" stroke="#3d7eff" stroke-width="1.3" stroke-linejoin="round"/></svg></div>
+          <div class="nav-card-body">
+            <div class="nav-card-title">Calculadora FIRE</div>
+            <div class="nav-card-sub">Independencia financiera</div>
+          </div>
+          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+
+        <div class="nav-card" id="card-impuestos">
+          <div class="nav-card-icon"><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><rect x="2" y="2" width="13" height="13" rx="2" stroke="#3d7eff" stroke-width="1.3"/><path d="M5 8.5h7M5 11h4M5 6h7" stroke="#3d7eff" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+          <div class="nav-card-body">
+            <div class="nav-card-title">Impuestos España</div>
+            <div class="nav-card-sub">Plusvalías · IRPF</div>
+          </div>
+          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+
+        <!-- BOT -->
+        <a class="nav-card bot-card col-span-2" href="https://t.me/MyPersonalInvest_bot" target="_blank" rel="noopener" style="text-decoration:none">
+          <div class="nav-card-icon"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M17.5 2.5L1.5 8.5l5 2 2 6 2.5-3 4 3 2.5-14z" stroke="#5b93ff" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.5 10.5l4.5 3.5" stroke="#5b93ff" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+          <div class="nav-card-body">
+            <div class="nav-card-title">@MyPersonalInvest_bot</div>
+            <div class="nav-card-sub">Tu asistente de inversión en Telegram · Gratis el primer mes</div>
+          </div>
+          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+
+        <!-- ── MAURO ── -->
+        <div class="portfolio-card col-span-2" id="card-portfolio-mauro" style="border-color:rgba(250,200,80,0.25);margin-top:8px">
           <div class="card-badge" style="color:#fac850"><span class="card-badge-dot" style="background:#fac850"></span>Cartera pública</div>
           <div class="card-title" style="color:#fac850">PORTFOLIO MAURO</div>
           <div class="card-brokers">MyInvestor · DeGiro · Trade Republic</div>
@@ -97,23 +144,17 @@
           </div>
         </div>
 
-        <!-- Brokers -->
-        <div class="nav-card" id="card-brokers">
-          <div class="nav-card-icon">
-            <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><rect x="1" y="5" width="15" height="10" rx="2" stroke="#3d7eff" stroke-width="1.3"/><path d="M5 5V4a3.5 3.5 0 017 0v1" stroke="#3d7eff" stroke-width="1.3" stroke-linecap="round"/><circle cx="8.5" cy="10" r="1.4" fill="#3d7eff"/></svg>
-          </div>
+        <div class="nav-card" id="card-mauro-brokers" style="border-color:rgba(250,200,80,0.15)">
+          <div class="nav-card-icon"><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><rect x="1" y="5" width="15" height="10" rx="2" stroke="#fac850" stroke-width="1.3"/><path d="M5 5V4a3.5 3.5 0 017 0v1" stroke="#fac850" stroke-width="1.3" stroke-linecap="round"/><circle cx="8.5" cy="10" r="1.4" fill="#fac850"/></svg></div>
           <div class="nav-card-body">
             <div class="nav-card-title">Brokers & Exchanges</div>
             <div class="nav-card-sub">Bolsa · Cripto · Referidos</div>
           </div>
-          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none" style="color:#fac850"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
 
-        <!-- Dividendos — próximamente -->
-        <div class="nav-card disabled">
-          <div class="nav-card-icon">
-            <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="6.5" stroke="#3d7eff" stroke-width="1.3"/><path d="M8.5 5v3.5l2 1.5" stroke="#3d7eff" stroke-width="1.3" stroke-linecap="round"/><path d="M5.5 13l1.5-1.5M11.5 4.5L10 6" stroke="#3d7eff" stroke-width="1.1" stroke-linecap="round"/></svg>
-          </div>
+        <div class="nav-card disabled" style="border-color:rgba(250,200,80,0.1)">
+          <div class="nav-card-icon"><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="6.5" stroke="#fac850" stroke-width="1.3"/><path d="M8.5 5v3.5l2 1.5" stroke="#fac850" stroke-width="1.3" stroke-linecap="round"/></svg></div>
           <div class="nav-card-body">
             <div class="nav-card-title">Cartera Dividendos</div>
             <div class="nav-card-sub">Renta pasiva · Yield</div>
@@ -121,42 +162,23 @@
           <span class="badge-soon">Pronto</span>
         </div>
 
-        <!-- FIRE Calculator -->
-        <div class="nav-card" id="card-fire">
-          <div class="nav-card-icon">
-            <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M8.5 2C6 5 4 7 4 10a4.5 4.5 0 009 0c0-3-2-5-4.5-8z" stroke="#3d7eff" stroke-width="1.3" stroke-linejoin="round"/><path d="M8.5 13.5v.5" stroke="#3d7eff" stroke-width="1.3" stroke-linecap="round"/></svg>
-          </div>
+        <div class="nav-card" id="card-mauro-fire" style="border-color:rgba(250,200,80,0.15)">
+          <div class="nav-card-icon"><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M8.5 2C6 5 4 7 4 10a4.5 4.5 0 009 0c0-3-2-5-4.5-8z" stroke="#fac850" stroke-width="1.3" stroke-linejoin="round"/></svg></div>
           <div class="nav-card-body">
             <div class="nav-card-title">Calculadora FIRE</div>
             <div class="nav-card-sub">Independencia financiera</div>
           </div>
-          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none" style="color:#fac850"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
 
-        <!-- Impuestos España -->
-        <div class="nav-card" id="card-impuestos">
-          <div class="nav-card-icon">
-            <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><rect x="2" y="2" width="13" height="13" rx="2" stroke="#3d7eff" stroke-width="1.3"/><path d="M5 8.5h7M5 11h4M5 6h7" stroke="#3d7eff" stroke-width="1.2" stroke-linecap="round"/></svg>
-          </div>
+        <div class="nav-card" id="card-mauro-impuestos" style="border-color:rgba(250,200,80,0.15)">
+          <div class="nav-card-icon"><svg width="17" height="17" viewBox="0 0 17 17" fill="none"><rect x="2" y="2" width="13" height="13" rx="2" stroke="#fac850" stroke-width="1.3"/><path d="M5 8.5h7M5 11h4M5 6h7" stroke="#fac850" stroke-width="1.2" stroke-linecap="round"/></svg></div>
           <div class="nav-card-body">
             <div class="nav-card-title">Impuestos España</div>
             <div class="nav-card-sub">Plusvalías · IRPF</div>
           </div>
-          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none" style="color:#fac850"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
-
-        <!-- BOT — col span 2, bright blue -->
-        <a class="nav-card bot-card col-span-2" href="https://t.me/MyPersonalInvest_bot" target="_blank" rel="noopener" style="text-decoration:none">
-          <div class="nav-card-icon">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M17.5 2.5L1.5 8.5l5 2 2 6 2.5-3 4 3 2.5-14z" stroke="#5b93ff" stroke-width="1.4" stroke-linejoin="round"/><path d="M6.5 10.5l4.5 3.5" stroke="#5b93ff" stroke-width="1.2" stroke-linecap="round"/></svg>
-          </div>
-          <div class="nav-card-body">
-            <div class="nav-card-title">@MyPersonalInvest_bot</div>
-            <div class="nav-card-sub">Tu asistente de inversión en Telegram · Gratis el primer mes</div>
-          </div>
-          <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </a>
-
 
       </div>
     </div>
