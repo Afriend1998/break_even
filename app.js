@@ -72,6 +72,14 @@
       }
     });
 
+    document.getElementById('btn-google-login').addEventListener('click', async () => {
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: 'https://afriend1998.github.io/break_even/' }
+      });
+      if (error) showAuthMsg(error.message, false);
+    });
+
     document.getElementById('btn-logout').addEventListener('click', async () => {
       await sb.auth.signOut();
       goTo('intro');
