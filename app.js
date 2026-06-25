@@ -460,6 +460,22 @@
             ? '-' + fmtEur(Math.abs(net)) + ' pérdida'
             : fmtEur(net);
 
+        // ── Datos en vivo si disponibles ──
+        const live = liveData[ticker];
+        let liveHtml = '';
+        if (live && live.price) {
+          const liveCcy  = live.currency || 'USD';
+          const pnlPct   = avgPrice > 0 ? (((live.price - avgPrice) / avgPrice) * 100).toFixed(1) : null;
+          const pnlColor = pnlPct === null ? 'var(--muted)' : parseFloat(pnlPct) >= 0 ? '#22c55e' : '#ef4444';
+          const liveVal  = netQty > 0 ? live.price * netQty : null;
+          liveHtml =
+            '<span style="font-size:10px;color:var(--muted)">→</span>' +
+            '<span style="font-size:12px;font-weight:700;color:var(--txt)">' + liveCcy + ' ' + live.price.toFixed(2) + '</span>' +
+            (pnlPct !== null ? '<span style="font-size:11px;font-weight:600;color:' + pnlColor + '">' + (parseFloat(pnlPct)>=0?'+':'') + pnlPct + '%</span>' : '') +
+            (liveVal ? '<span style="font-size:11px;color:#06b6d4">~€' + Math.round(liveVal).toLocaleString('es-ES') + '</span>' : '') +
+            (live.dividendRate > 0 ? '<span style="font-size:10px;color:#fac850" title="Dividendo anualizado">💰$' + live.dividendRate.toFixed(2) + '/acc</span>' : '');
+        }
+
         const group = document.createElement('div');
         group.className = 'ticker-group';
 
@@ -472,6 +488,7 @@
           '</div>' +
           '<div class="ticker-right">' +
             '<span class="ticker-avg">' + avgLabel + '</span>' +
+            liveHtml +
             (totalDividends > 0 ? '<span style="font-size:11px;color:#fac850;font-weight:600">💰' + fmtEur(totalDividends) + '</span>' : '') +
             '<span class="ticker-total" style="color:' + netColor + '">' + netLabel + '</span>' +
             '<svg class="ticker-chevron" width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
@@ -703,6 +720,79 @@
       return parseFloat(s.replace(',', '.'));
     }
 
+    /* ══════════════════════════════════════════════
+       PRECIOS EN VIVO — Yahoo Finance
+    ══════════════════════════════════════════════ */
+    let liveData = {}; // { TICKER: { price, currency, dividendRate, dividendYield } }
+
+    async function fetchLivePrices(tickers) {
+      if (!tickers || tickers.length === 0) return;
+      const symbols = tickers.join(',');
+      const urls = [
+        `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&fields=regularMarketPrice,currency,trailingAnnualDividendRate,trailingAnnualDividendYield`,
+        `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&fields=regularMarketPrice,currency,trailingAnnualDividendRate,trailingAnnualDividendYield`,
+        `https://corsproxy.io/?${encodeURIComponent('https://query1.finance.yahoo.com/v7/finance/quote?symbols=' + symbols + '&fields=regularMarketPrice,currency,trailingAnnualDividendRate,trailingAnnualDividendYield')}`,
+      ];
+      for (const url of urls) {
+        try {
+          const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+          if (!res.ok) continue;
+          const json = await res.json();
+          const quotes = json?.quoteResponse?.result || [];
+          if (quotes.length === 0) continue;
+          quotes.forEach(q => {
+            liveData[q.symbol] = {
+              price:         q.regularMarketPrice || null,
+              currency:      q.currency || 'USD',
+              dividendRate:  q.trailingAnnualDividendRate || 0,
+              dividendYield: q.trailingAnnualDividendYield || 0,
+            };
+          });
+          return; // éxito, salir del loop
+        } catch(e) { continue; }
+      }
+    }
+
+    async function refreshLivePrices() {
+      const btn   = document.getElementById('btn-live-prices');
+      const label = document.getElementById('live-btn-label');
+      if (btn) { btn.disabled = true; label.textContent = 'Actualizando...'; }
+
+      const assets = await loadAssets();
+      const tickers = [...new Set(assets.map(a => a.ticker?.toUpperCase()).filter(Boolean))];
+
+      // Separar cripto de bolsa
+      const stockTickers  = tickers.filter(t => !CRYPTO_TICKERS.has(t));
+      const cryptoTickers = tickers.filter(t =>  CRYPTO_TICKERS.has(t));
+
+      await fetchLivePrices(stockTickers);
+
+      // CoinGecko para cripto
+      if (cryptoTickers.length > 0) {
+        const cgMap = { XRP:'ripple', XLM:'stellar', BTC:'bitcoin', ETH:'ethereum', SOL:'solana', FLR:'flare-networks' };
+        const ids = cryptoTickers.map(t => cgMap[t]).filter(Boolean).join(',');
+        if (ids) {
+          try {
+            const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+            if (res.ok) {
+              const json = await res.json();
+              cryptoTickers.forEach(t => {
+                const id = cgMap[t];
+                if (id && json[id]) liveData[t] = { price: json[id].usd, currency: 'USD', dividendRate: 0, dividendYield: 0 };
+              });
+            }
+          } catch(e) {}
+        }
+      }
+
+      renderAssets();
+      if (btn) {
+        btn.disabled = false;
+        label.textContent = '✓ Precios actualizados · ' + new Date().toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'});
+        setTimeout(() => { if (label) label.textContent = 'Actualizar precios en vivo'; }, 30000);
+      }
+    }
+
     function initAssetsScreen() {
       populateBrokerSuggestions();
 
@@ -747,7 +837,7 @@
         document.getElementById('new-currency').value = '';
       });
 
-      document.getElementById('btn-save-snapshot').addEventListener('click', handleSaveSnapshot);
+      document.getElementById('btn-live-prices').addEventListener('click', refreshLivePrices);
 
       document.getElementById('btn-download-template').addEventListener('click', () => {
         const csv = 'ticker,broker,valor,tipo\nAASPL,Revolut,182.50,compra\nAAPL,Revolut,195.00,compra\nAAPL,Revolut,190.00,venta\nNVDA,Interactive Brokers,420.00,compra\nBTC,Bybit,28000.00,compra\n';
@@ -1986,7 +2076,7 @@
         const net = buyVal - sellVal;
         totalInvested += buyVal;
         totalSells    += sellVal;
-        if (net > 0) { openValue += net; openCount++; }
+        if (net > 0.50) { openValue += net; openCount++; }
       });
 
       const pnl = totalSells - (totalInvested - openValue); // ganancia realizada
@@ -2011,7 +2101,7 @@
       const openPositions = Object.values(grouped).filter(g => {
         const buyVal  = g.buys.reduce((s,a)  => s+(parseFloat(a.value)||0), 0);
         const sellVal = g.sells.reduce((s,a) => s+(parseFloat(a.value)||0), 0);
-        return (buyVal - sellVal) > 0;
+        return (buyVal - sellVal) > 0.50;
       }).map(g => {
         const buyVal  = g.buys.reduce((s,a)  => s+(parseFloat(a.value)||0), 0);
         const sellVal = g.sells.reduce((s,a) => s+(parseFloat(a.value)||0), 0);
@@ -2102,7 +2192,7 @@
         grouped[t].net += (a.type === 'venta' ? -v : a.type === 'dividendo' ? 0 : v);
       });
 
-      const allPos = Object.values(grouped).filter(p => p.net > 0).sort((a,b) => b.net - a.net);
+      const allPos = Object.values(grouped).filter(p => p.net > 0.50).sort((a,b) => b.net - a.net);
       const tradPos   = allPos.filter(p => !isCrypto(p.ticker, p.broker));
       const cryptoPos = allPos.filter(p =>  isCrypto(p.ticker, p.broker));
 
