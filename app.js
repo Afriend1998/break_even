@@ -33,11 +33,47 @@
       });
     }
 
+    /* ══════════════════════════════════════════════
+       CONTROL DE ACCESO — Admin vs Usuario normal
+    ══════════════════════════════════════════════ */
+    const ADMIN_EMAIL = 'miguelalonsoarnedo@gmail.com';
+    let isAdmin = false;
+
+    function setupUI(email) {
+      isAdmin = (email === ADMIN_EMAIL);
+
+      // ── Dashboard: nombre de la cartera propia ──
+      const migCard = document.getElementById('card-portfolio');
+      if (migCard) {
+        if (isAdmin) {
+          migCard.querySelector('.card-title').textContent = 'PORTFOLIO MIGUEL';
+          migCard.querySelector('.card-brokers').textContent = 'Revolut · MyInvestor · Interactive Brokers';
+        } else {
+          migCard.querySelector('.card-title').textContent = 'MI PORTFOLIO';
+          migCard.querySelector('.card-brokers').textContent = 'Mis activos · Mi cartera';
+        }
+      }
+
+      // ── Portfolio screen: ocultar secciones admin-only para usuarios normales ──
+      const adminOnlyCards = ['card-libros', 'card-blog', 'card-about'];
+      adminOnlyCards.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = isAdmin ? '' : 'none';
+      });
+
+      // ── Portfolio header ──
+      const portName = document.querySelector('#screen-portfolio .port-name');
+      if (portName) portName.textContent = isAdmin ? 'PORTFOLIO MIGUEL' : 'MI PORTFOLIO';
+    }
+
     /* ── AUTH FLOW ── */
     document.getElementById('btn-continue').addEventListener('click', async () => {
       const { data } = await sb.auth.getSession();
-      if (data.session) goTo('dashboard');
-      else goTo('auth');
+      if (data.session) {
+        const { data: { user } } = await sb.auth.getUser();
+        if (user) setupUI(user.email);
+        goTo('dashboard');
+      } else goTo('auth');
     });
 
     let authMode = 'login';
@@ -63,13 +99,14 @@
       if (authMode === 'login') {
         const { error } = await sb.auth.signInWithPassword({ email, password });
         if (error) { showAuthMsg(error.message, false); return; }
+        setupUI(email);
         goTo('dashboard');
       } else {
         const { error } = await sb.auth.signUp({ email, password });
         if (error) { showAuthMsg(error.message, false); return; }
         showAuthMsg('Cuenta creada. Si pide confirmación, revisa tu email. Si no, ya puedes entrar.', true);
         const { data } = await sb.auth.getSession();
-        if (data.session) goTo('dashboard');
+        if (data.session) { setupUI(email); goTo('dashboard'); }
       }
     });
 
@@ -111,8 +148,12 @@
     });
 
     // Supabase detecta el link de recuperación en la URL y dispara este evento
-    sb.auth.onAuthStateChange((event) => {
+    sb.auth.onAuthStateChange(async (event, session) => {
       if (event === 'PASSWORD_RECOVERY') goTo('reset');
+      if (event === 'SIGNED_IN' && session?.user) {
+        setupUI(session.user.email);
+        goTo('dashboard');
+      }
     });
 
 
@@ -2042,7 +2083,6 @@
     /* ══════════════════════════════════════════════
        DIARIO DE INVERSIÓN — Blog
     ══════════════════════════════════════════════ */
-    const ADMIN_EMAIL = 'miguelalonsoarnedo@gmail.com';
 
     async function loadBlog() {
       // Mostrar formulario solo si es Miguel
