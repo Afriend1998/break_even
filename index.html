@@ -301,6 +301,18 @@
         <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
 
+      <!-- ─── DIARIO ─── -->
+      <div class="nav-card" id="card-blog" style="margin-bottom:16px">
+        <div class="nav-card-icon">
+          <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M3 2h9l3 3v10a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="#3d7eff" stroke-width="1.2" stroke-linejoin="round"/><path d="M9 2v4h4M5 9h7M5 12h5" stroke="#3d7eff" stroke-width="1.2" stroke-linecap="round"/></svg>
+        </div>
+        <div class="nav-card-body">
+          <div class="nav-card-title">Diario de Inversión</div>
+          <div class="nav-card-sub">Análisis · Opiniones · Mercados</div>
+        </div>
+        <svg class="nav-card-arrow" width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 7.5h9M8 3.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+
       <!-- ─── SOBRE MÍ ─── -->
       <div class="nav-card" id="card-about" style="margin-bottom:16px">
         <div class="nav-card-icon">
@@ -700,6 +712,36 @@
     </div>
   </div>
 
+  <!-- ─── SCREEN: BLOG ─── -->
+  <div class="screen hidden" id="screen-blog">
+    <div class="calc-inner">
+      <div class="port-header">
+        <button class="btn-back" id="btn-back-blog">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M12 7H2M6 3L2 7l4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Volver
+        </button>
+        <div class="port-name">DIARIO DE INVERSIÓN</div>
+      </div>
+
+      <!-- Formulario nuevo post (solo admin) -->
+      <div id="blog-write-wrap" style="display:none;margin-bottom:20px">
+        <div class="section-card">
+          <div class="section-title">Nueva entrada</div>
+          <input type="text" id="blog-title" class="asset-input" placeholder="Título (ej: Por qué vendí ASTS)" style="width:100%;margin-bottom:10px">
+          <input type="text" id="blog-ticker" class="asset-input" placeholder="Ticker relacionado (opcional, ej: ASTS)" style="width:100%;margin-bottom:10px">
+          <textarea id="blog-content" class="asset-input" placeholder="Escribe tu análisis aquí..." style="width:100%;min-height:140px;resize:vertical;font-family:Inter,sans-serif;line-height:1.6"></textarea>
+          <div style="display:flex;justify-content:flex-end;margin-top:10px">
+            <button id="btn-publish-post" class="add-asset-btn">Publicar entrada</button>
+          </div>
+          <div id="blog-msg" style="font-size:12px;margin-top:8px;text-align:right"></div>
+        </div>
+      </div>
+
+      <!-- Lista de posts -->
+      <div id="blog-posts-list"></div>
+    </div>
+  </div>
+
   <!-- ─── SCREEN 5: FIRE ─── -->
   <div class="screen hidden" id="screen-fire">
     <div class="calc-inner">
@@ -984,14 +1026,18 @@
 
       <!-- Hero: foto + texto -->
       <div class="about-hero">
-        <div class="photo-placeholder">
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none" opacity="0.4">
-            <rect x="2" y="6" width="28" height="22" rx="3" stroke="currentColor" stroke-width="1.5"/>
-            <circle cx="16" cy="17" r="6" stroke="currentColor" stroke-width="1.5"/>
-            <circle cx="16" cy="17" r="2.5" fill="currentColor" opacity="0.4"/>
-            <path d="M11 6l2-3h6l2 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          <span class="photo-label">Tu foto aquí</span>
+        <div class="photo-placeholder" id="photo-wrap" onclick="document.getElementById('photo-input').click()" title="Clic para cambiar foto">
+          <img id="profile-photo" src="" alt="Foto de perfil" style="display:none;width:100%;height:100%;object-fit:cover;border-radius:10px;">
+          <div id="photo-default">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none" opacity="0.4">
+              <rect x="2" y="6" width="28" height="22" rx="3" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="16" cy="17" r="6" stroke="currentColor" stroke-width="1.5"/>
+              <circle cx="16" cy="17" r="2.5" fill="currentColor" opacity="0.4"/>
+              <path d="M11 6l2-3h6l2 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="photo-label">Clic para subir foto</span>
+          </div>
+          <input type="file" id="photo-input" accept="image/*" hidden>
         </div>
         <div class="about-hero-text">
           <div class="about-name">Miguel</div>

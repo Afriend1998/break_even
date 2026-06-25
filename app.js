@@ -1,4 +1,4 @@
-/* ── SUPABASE ── */
+    /* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -18,6 +18,7 @@
       reset:      document.getElementById('screen-reset'),
       comunidad:        null,
       'portfolio-mauro': document.getElementById('screen-portfolio-mauro'),
+      blog:              document.getElementById('screen-blog'),
     };
     function goTo(target) {
       Object.keys(screens).forEach(key => {
@@ -131,7 +132,9 @@
     document.getElementById('card-assets').addEventListener('click',            () => goTo('assets'));
     document.getElementById('btn-back-assets').addEventListener('click',        () => goTo('portfolio'));
     document.getElementById('btn-back-libros').addEventListener('click',        () => goTo('portfolio'));
-    document.getElementById('card-libros').addEventListener('click',            () => goTo('libros'));
+    document.getElementById('card-blog').addEventListener('click',          () => { goTo('blog'); loadBlog(); });
+    document.getElementById('btn-back-blog').addEventListener('click',      () => goTo('portfolio'));
+    document.getElementById('card-libros').addEventListener('click',        () => goTo('libros'));
     document.getElementById('btn-back-impuestos').addEventListener('click',     () => goTo('dashboard'));
 
     /* ── FIRE CALCULATOR ── */
@@ -2008,7 +2011,109 @@
       localStorage.setItem('be_tip_div_dismissed', '1');
     }
 
+    /* ══════════════════════════════════════════════
+       FOTO DE PERFIL
+    ══════════════════════════════════════════════ */
+    function initProfilePhoto() {
+      const saved = localStorage.getItem('be_profile_photo');
+      if (saved) showPhoto(saved);
+      const input = document.getElementById('photo-input');
+      if (!input) return;
+      input.addEventListener('change', () => {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+          const b64 = e.target.result;
+          localStorage.setItem('be_profile_photo', b64);
+          showPhoto(b64);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    function showPhoto(src) {
+      const img = document.getElementById('profile-photo');
+      const def = document.getElementById('photo-default');
+      if (!img) return;
+      img.src = src; img.style.display = 'block';
+      if (def) def.style.display = 'none';
+    }
+
+    /* ══════════════════════════════════════════════
+       DIARIO DE INVERSIÓN — Blog
+    ══════════════════════════════════════════════ */
+    const ADMIN_EMAIL = 'miguelalonsoarnedo@gmail.com';
+
+    async function loadBlog() {
+      // Mostrar formulario solo si es Miguel
+      const { data: { user } } = await sb.auth.getUser();
+      const isAdmin = user && user.email === ADMIN_EMAIL;
+      const writeWrap = document.getElementById('blog-write-wrap');
+      if (writeWrap) writeWrap.style.display = isAdmin ? 'block' : 'none';
+
+      // Cargar posts
+      const { data: posts, error } = await sb.from('posts')
+        .select('*').order('created_at', { ascending: false });
+
+      const list = document.getElementById('blog-posts-list');
+      if (!list) return;
+
+      if (error) {
+        list.innerHTML = '<div class="assets-empty">Error cargando entradas. Asegúrate de que la tabla "posts" existe en Supabase.</div>';
+        return;
+      }
+      if (!posts || posts.length === 0) {
+        list.innerHTML = '<div class="assets-empty" style="padding:32px;text-align:center">Todavía no hay entradas. ¡Sé el primero en publicar tu análisis!</div>';
+        return;
+      }
+
+      list.innerHTML = '';
+      posts.forEach(post => {
+        const card = document.createElement('div');
+        card.className = 'section-card';
+        card.style.marginBottom = '12px';
+        const date = new Date(post.created_at).toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric' });
+        card.innerHTML =
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">' +
+            '<div style="font-family:Space Grotesk,sans-serif;font-size:17px;font-weight:700;color:var(--txt);flex:1">' + (post.title || 'Sin título') + '</div>' +
+            (post.ticker ? '<span style="font-size:11px;padding:3px 10px;background:rgba(61,127,255,0.12);border:1px solid rgba(61,127,255,0.25);border-radius:20px;color:#3d7eff;font-weight:600">' + post.ticker + '</span>' : '') +
+            (isAdmin ? '<button onclick="deletePost(\'' + post.id + '\')" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:0 4px;transition:color 0.15s" onmouseover="this.style.color=\'#ef4444\'" onmouseout="this.style.color=\'var(--muted)\'">×</button>' : '') +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted);margin-bottom:12px;letter-spacing:0.04em">' + date + ' · Miguel</div>' +
+          '<div style="font-size:13px;color:var(--txt);line-height:1.75;white-space:pre-wrap">' + (post.content || '') + '</div>';
+        list.appendChild(card);
+      });
+    }
+
+    async function deletePost(id) {
+      if (!confirm('¿Borrar esta entrada?')) return;
+      await sb.from('posts').delete().eq('id', id);
+      loadBlog();
+    }
+
     window.addEventListener('load', () => {
+      initProfilePhoto();
+
+      const publishBtn = document.getElementById('btn-publish-post');
+      if (publishBtn) {
+        publishBtn.addEventListener('click', async () => {
+          const title   = document.getElementById('blog-title').value.trim();
+          const ticker  = document.getElementById('blog-ticker').value.trim().toUpperCase() || null;
+          const content = document.getElementById('blog-content').value.trim();
+          const msg     = document.getElementById('blog-msg');
+          if (!title || !content) { msg.style.color='#ef4444'; msg.textContent='Añade título y contenido.'; return; }
+          const userId = await getUserId();
+          if (!userId) { msg.style.color='#ef4444'; msg.textContent='Inicia sesión primero.'; return; }
+          const { error } = await sb.from('posts').insert({ user_id:userId, title, ticker, content });
+          if (error) { msg.style.color='#ef4444'; msg.textContent='Error: ' + error.message; return; }
+          document.getElementById('blog-title').value   = '';
+          document.getElementById('blog-ticker').value  = '';
+          document.getElementById('blog-content').value = '';
+          msg.style.color='#22c55e'; msg.textContent='✓ Publicado';
+          setTimeout(()=>{ msg.textContent=''; }, 3000);
+          loadBlog();
+        });
+      }
       if (localStorage.getItem('be_tip_div_dismissed')) {
         const b = document.getElementById('tip-dividendos');
         if (b) b.remove();
