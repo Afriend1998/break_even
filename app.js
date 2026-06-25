@@ -1,4 +1,4 @@
-    /* ── SUPABASE ── */
+/* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -34,9 +34,28 @@
       });
     }
 
-    /* ══════════════════════════════════════════════
-       CONTROL DE ACCESO — Admin vs Usuario normal
-    ══════════════════════════════════════════════ */
+    /* ── DETECTAR RECOVERY TOKEN EN LA URL AL CARGAR ── */
+    (async () => {
+      const hash = window.location.hash;
+      if (hash.includes('type=recovery') || hash.includes('type=signup')) {
+        // Supabase ya procesó el token vía onAuthStateChange,
+        // pero por si acaso forzamos la sesión manualmente
+        const { data } = await sb.auth.getSession();
+        if (data.session) {
+          if (hash.includes('type=recovery')) {
+            goTo('reset');
+          } else {
+            const { data: { user } } = await sb.auth.getUser();
+            if (user) setupUI(user.email);
+            goTo('dashboard');
+          }
+          // Limpiar el hash de la URL
+          history.replaceState(null, '', window.location.pathname);
+        }
+      }
+    })();
+
+    /* ── CONTROL DE ACCESO — Admin vs Usuario normal ── */
     const ADMIN_EMAIL = 'miguelalonsoarnedo@gmail.com';
     let isAdmin = false;
 
@@ -150,10 +169,15 @@
 
     // Supabase detecta el link de recuperación en la URL y dispara este evento
     sb.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY') goTo('reset');
+      if (event === 'PASSWORD_RECOVERY') {
+        goTo('reset');
+        history.replaceState(null, '', window.location.pathname);
+      }
       if (event === 'SIGNED_IN' && session?.user) {
         setupUI(session.user.email);
-        goTo('dashboard');
+        // Solo redirigir al dashboard si estamos en intro o auth
+        const current = Object.keys(screens).find(k => screens[k] && !screens[k].classList.contains('hidden'));
+        if (current === 'intro' || current === 'auth') goTo('dashboard');
       }
     });
 
