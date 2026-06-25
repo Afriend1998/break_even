@@ -1159,11 +1159,13 @@
       <!-- Add manual -->
       <div class="section-card">
         <div class="section-title">Añadir activo manualmente</div>
-        <p class="asset-hint">El campo broker es libre — puedes poner el nombre que tú quieras (ej: "RULE" para tu cuenta de Revolut) y luego identificarlo como prefieras.</p>
+        <p class="asset-hint">El campo broker es libre — puedes poner el nombre que tú quieras (ej: "RULE" para tu cuenta de Revolut).</p>
         <div class="add-asset-form">
-          <input type="text" id="new-ticker" class="asset-input" placeholder="Ticker (ej: ASTS)">
-          <input type="text" id="new-broker" class="asset-input" list="broker-suggestions" placeholder="Broker (ej: Revolut, RULE...)">
-          <input type="number" id="new-value" class="asset-input" placeholder="Valor (€)">
+          <input type="text"   id="new-ticker"   class="asset-input" placeholder="Ticker (ej: ASTS)">
+          <input type="text"   id="new-broker"   class="asset-input" list="broker-suggestions" placeholder="Broker (ej: Revolut...)">
+          <input type="number" id="new-price"    class="asset-input" placeholder="Precio/acc. (ej: 73.46)" step="any" min="0">
+          <input type="number" id="new-qty"      class="asset-input" placeholder="Cantidad acc. (ej: 3.5)" step="any" min="0">
+          <input type="text"   id="new-currency" class="asset-input" placeholder="Divisa (USD, EUR...)" style="max-width:100px">
         </div>
         <div class="add-asset-bottom">
           <div class="new-type-toggle">

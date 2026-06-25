@@ -590,8 +590,26 @@
         name: '',
         broker: broker || 'Sin clasificar',
         value: parseFloat(value) || 0,
-        type: type === 'venta' ? 'venta' : 'compra',
+        type: type === 'venta' ? 'venta' : type === 'dividendo' ? 'dividendo' : 'compra',
       });
+      renderAssets();
+    }
+
+    async function addAssetFull(ticker, broker, value, type, qty, price, currency) {
+      const userId = await getUserId();
+      if (!userId) return;
+      const { error } = await sb.from('assets').insert({
+        user_id:     userId,
+        ticker:      (ticker || '').toUpperCase(),
+        name:        '',
+        broker:      broker || 'Sin clasificar',
+        value:       parseFloat(value) || 0,
+        type:        type === 'venta' ? 'venta' : type === 'dividendo' ? 'dividendo' : 'compra',
+        quantity:    qty   > 0 ? qty   : null,
+        price_local: price > 0 ? price : null,
+        currency:    currency || 'USD',
+      });
+      if (error) { alert('Error: ' + error.message); return; }
       renderAssets();
     }
 
@@ -714,14 +732,19 @@
       });
 
       document.getElementById('btn-add-asset').addEventListener('click', () => {
-        const t = document.getElementById('new-ticker').value.trim();
-        const b = document.getElementById('new-broker').value.trim() || 'Sin clasificar';
-        const v = document.getElementById('new-value').value;
+        const t    = document.getElementById('new-ticker').value.trim();
+        const b    = document.getElementById('new-broker').value.trim() || 'Sin clasificar';
+        const price = parseFloat(document.getElementById('new-price').value) || 0;
+        const qty   = parseFloat(document.getElementById('new-qty').value)   || 0;
+        const ccy   = (document.getElementById('new-currency').value.trim() || 'USD').toUpperCase();
         if (!t) return;
-        addAsset(t, b, v, selectedNewType);
-        document.getElementById('new-ticker').value = '';
-        document.getElementById('new-broker').value = '';
-        document.getElementById('new-value').value = '';
+        const value = price * qty || price; // si no hay qty, usa precio como valor total
+        addAssetFull(t, b, value, selectedNewType, qty, price, ccy);
+        document.getElementById('new-ticker').value   = '';
+        document.getElementById('new-broker').value   = '';
+        document.getElementById('new-price').value    = '';
+        document.getElementById('new-qty').value      = '';
+        document.getElementById('new-currency').value = '';
       });
 
       document.getElementById('btn-save-snapshot').addEventListener('click', handleSaveSnapshot);
