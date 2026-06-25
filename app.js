@@ -18,6 +18,7 @@
       reset:      document.getElementById('screen-reset'),
       comunidad:        null,
       'portfolio-mauro': document.getElementById('screen-portfolio-mauro'),
+      'my-portfolio':    document.getElementById('screen-my-portfolio'),
       blog:              document.getElementById('screen-blog'),
     };
     function goTo(target) {
@@ -42,28 +43,28 @@
     function setupUI(email) {
       isAdmin = (email === ADMIN_EMAIL);
 
-      // ── Dashboard: nombre de la cartera propia ──
+      // ── MI PORTFOLIO: visible solo para usuarios normales ──
+      const myCard = document.getElementById('card-my-portfolio');
+      if (myCard) myCard.style.display = isAdmin ? 'none' : '';
+
+      // ── Portfolio Miguel: badge diferente según quién entra ──
       const migCard = document.getElementById('card-portfolio');
       if (migCard) {
-        if (isAdmin) {
-          migCard.querySelector('.card-title').textContent = 'PORTFOLIO MIGUEL';
-          migCard.querySelector('.card-brokers').textContent = 'Revolut · MyInvestor · Interactive Brokers';
-        } else {
-          migCard.querySelector('.card-title').textContent = 'MI PORTFOLIO';
-          migCard.querySelector('.card-brokers').textContent = 'Mis activos · Mi cartera';
-        }
+        const badge = migCard.querySelector('.card-badge');
+        if (badge) badge.innerHTML = isAdmin
+          ? '<span class="card-badge-dot"></span>Cartera activa'
+          : '<span class="card-badge-dot"></span>Cartera pública';
       }
 
-      // ── Portfolio screen: ocultar secciones admin-only para usuarios normales ──
-      const adminOnlyCards = ['card-libros', 'card-blog', 'card-about'];
-      adminOnlyCards.forEach(id => {
+      // ── Dentro del portfolio de Miguel: ocultar secciones admin-only ──
+      const adminOnly = ['card-libros', 'card-blog', 'card-about', 'card-assets'];
+      adminOnly.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = isAdmin ? '' : 'none';
       });
 
-      // ── Portfolio header ──
-      const portName = document.querySelector('#screen-portfolio .port-name');
-      if (portName) portName.textContent = isAdmin ? 'PORTFOLIO MIGUEL' : 'MI PORTFOLIO';
+      // ── Para usuarios normales: ocultar btn de PDF y live prices en assets ──
+      // (pueden usar sus propios activos sin restricción)
     }
 
     /* ── AUTH FLOW ── */
@@ -173,7 +174,9 @@
     document.getElementById('card-assets').addEventListener('click',            () => goTo('assets'));
     document.getElementById('btn-back-assets').addEventListener('click',        () => goTo('portfolio'));
     document.getElementById('btn-back-libros').addEventListener('click',        () => goTo('portfolio'));
-    document.getElementById('card-blog').addEventListener('click',          () => { goTo('blog'); loadBlog(); });
+    document.getElementById('card-my-portfolio').addEventListener('click',     () => goTo('my-portfolio'));
+    document.getElementById('btn-back-my-portfolio').addEventListener('click', () => goTo('dashboard'));
+    document.getElementById('card-my-assets').addEventListener('click',        () => goTo('assets'));
     document.getElementById('btn-back-blog').addEventListener('click',      () => goTo('portfolio'));
     document.getElementById('card-libros').addEventListener('click',        () => goTo('libros'));
     document.getElementById('btn-back-impuestos').addEventListener('click',     () => goTo('dashboard'));
