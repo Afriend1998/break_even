@@ -1,4 +1,4 @@
-    /* ── SUPABASE ── */
+/* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -365,8 +365,19 @@
       return data.user ? data.user.id : null;
     }
 
+    const MIGUEL_USER_ID = 'dc904296-a124-4c1e-9ad9-97c40e3cf9fc';
+
     async function loadAssets() {
       const { data, error } = await sb.from('assets').select('*').order('created_at', { ascending: true });
+      if (error) { console.error(error); return []; }
+      return data || [];
+    }
+
+    async function loadMiguelAssets() {
+      const { data, error } = await sb.from('assets')
+        .select('*')
+        .eq('user_id', MIGUEL_USER_ID)
+        .order('created_at', { ascending: true });
       if (error) { console.error(error); return []; }
       return data || [];
     }
@@ -2218,7 +2229,7 @@
     }
 
     async function refreshPortfolio() {
-      const assets = await loadAssets();
+      const assets = isAdmin ? await loadAssets() : await loadMiguelAssets();
 
       // ── Calcular métricas ──
       const grouped = {};
@@ -2341,7 +2352,7 @@
       const allocWrap = document.querySelector('.alloc-wrap');
       if (!allocWrap) return;
 
-      const assets = await loadAssets();
+      const assets = isAdmin ? await loadAssets() : await loadMiguelAssets();
       const buysOnly = assets.filter(a => (a.type || 'compra') === 'compra');
 
       // Agrupar por ticker → valor neto
