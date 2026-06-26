@@ -172,7 +172,12 @@
     }
 
     /* ── CALC SCREENS ── */
-    #screen-comunidad { justify-content: flex-start; overflow-y: auto; padding: 32px 24px 80px; }
+    #screen-comunidad,
+    #screen-fire,
+    #screen-impuestos,
+    #screen-my-portfolio,
+    #screen-portfolio-mauro,
+    #screen-blog       { justify-content: flex-start; overflow-y: auto; padding: 32px 24px 80px; }
     .comunidad-inner { width: 100%; max-width: 860px; margin: 0 auto; }
     .investor-card {
       border-radius: 12px; overflow: hidden; margin-bottom: 20px;
