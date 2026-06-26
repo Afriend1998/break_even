@@ -368,7 +368,12 @@
     const MIGUEL_USER_ID = 'dc904296-a124-4c1e-9ad9-97c40e3cf9fc';
 
     async function loadAssets() {
-      const { data, error } = await sb.from('assets').select('*').order('created_at', { ascending: true });
+      const userId = await getUserId();
+      if (!userId) return [];
+      const { data, error } = await sb.from('assets')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
       if (error) { console.error(error); return []; }
       return data || [];
     }
