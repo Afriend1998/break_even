@@ -554,6 +554,25 @@
 
           <div class="broker-card">
             <div class="broker-top">
+              <div class="broker-logo" style="background:#0a0a0a;border:1px solid #333">IG</div>
+              <div>
+                <div class="broker-name">IG</div>
+                <div class="broker-desc">Broker líder en CFDs. DAX, índices, materias primas y más.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">CFDs</span>
+              <span class="broker-tag">DAX</span>
+              <span class="broker-tag">Índices</span>
+            </div>
+            <a href="https://refer.ig.com/miguelalonsoa-18" target="_blank" class="broker-link referral">
+              Abrir cuenta · Referido
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+          <div class="broker-card">
+            <div class="broker-top">
               <div class="broker-logo" style="background:#6AAF3D">eT</div>
               <div>
                 <div class="broker-name">eToro</div>
@@ -682,15 +701,30 @@
               <span class="broker-tag">Staking</span>
               <span class="broker-tag">DeFi</span>
             </div>
-            <a href="#" class="broker-link">
-              Registrarte
+            <a href="https://app.coindepo.com/auth/sign-up?ref=R-BDthKaUQ" target="_blank" class="broker-link referral">
+              Registrarte · Referido
               <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </a>
           </div>
 
           <div class="broker-card">
             <div class="broker-top">
-              <div class="broker-logo" style="background:#0052FF">CB</div>
+              <div class="broker-logo" style="background:#22c55e">EQ</div>
+              <div>
+                <div class="broker-name">Equito</div>
+                <div class="broker-desc">Inversión en inmuebles tokenizados desde 100€. Renta mensual.</div>
+              </div>
+            </div>
+            <div class="broker-tags">
+              <span class="broker-tag">Inmuebles</span>
+              <span class="broker-tag">Tokenizado</span>
+              <span class="broker-tag">Renta mensual</span>
+            </div>
+            <a href="https://bit.ly/download-equito" target="_blank" class="broker-link referral">
+              Descargar app · Referido
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
               <div>
                 <div class="broker-name">Coinbase</div>
                 <div class="broker-desc">El exchange más regulado. Ideal para empezar.</div>
@@ -778,6 +812,22 @@
 
       <!-- Lista de posts -->
       <div id="blog-posts-list"></div>
+
+      <!-- Formulario de sugerencias -->
+      <div class="section-card" style="margin-top:8px;border-color:rgba(61,127,255,0.2)">
+        <div class="section-title">💡 ¿Qué quieres que analice?</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">¿Hay una empresa, fondo o activo que te interesa y quieres que le eche un ojo? Dímelo aquí.</p>
+        <form id="form-sugerencia" action="https://formspree.io/f/mykqjgya" method="POST" style="display:flex;flex-direction:column;gap:10px">
+          <input type="hidden" name="tipo" value="Sugerencia análisis">
+          <input type="text" name="nombre" class="asset-input" placeholder="Tu nombre (opcional)" style="width:100%">
+          <input type="text" name="activo" class="asset-input" placeholder="Empresa, fondo o activo (ej: MSFT, Cobas, oro...)" style="width:100%" required>
+          <textarea name="mensaje" class="asset-input" placeholder="Cuéntame más si quieres — por qué te interesa, qué dudas tienes..." style="width:100%;min-height:100px;resize:vertical;font-family:Inter,sans-serif;line-height:1.6"></textarea>
+          <div style="display:flex;justify-content:flex-end">
+            <button type="submit" class="add-asset-btn" id="btn-sugerencia-submit">Enviar sugerencia →</button>
+          </div>
+          <div id="sugerencia-msg" style="font-size:12px;text-align:right;min-height:16px"></div>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -1137,6 +1187,22 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Formulario de feedback de la web -->
+      <div class="section-card" style="margin-top:8px;border-color:rgba(61,127,255,0.2)">
+        <div class="section-title">🛠 Mejora la web</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">¿Algo no funciona bien? ¿Echas de menos alguna funcionalidad? Cuéntamelo aquí.</p>
+        <form id="form-feedback" action="https://formspree.io/f/mykqjgya" method="POST" style="display:flex;flex-direction:column;gap:10px">
+          <input type="hidden" name="tipo" value="Feedback web">
+          <input type="text" name="nombre" class="asset-input" placeholder="Tu nombre (opcional)" style="width:100%">
+          <input type="email" name="email" class="asset-input" placeholder="Tu email (opcional, para responderte)" style="width:100%">
+          <textarea name="mensaje" class="asset-input" placeholder="Cuéntame qué mejorarías, qué falla o qué añadirías..." style="width:100%;min-height:100px;resize:vertical;font-family:Inter,sans-serif;line-height:1.6" required></textarea>
+          <div style="display:flex;justify-content:flex-end">
+            <button type="submit" class="add-asset-btn" id="btn-feedback-submit">Enviar feedback →</button>
+          </div>
+          <div id="feedback-msg" style="font-size:12px;text-align:right;min-height:16px"></div>
+        </form>
       </div>
 
     </div>

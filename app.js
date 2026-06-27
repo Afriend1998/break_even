@@ -1,4 +1,4 @@
-/* ── SUPABASE ── */
+    /* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -2162,6 +2162,42 @@
       await sb.from('posts').delete().eq('id', id);
       loadBlog();
     }
+
+    // ── FORMSPREE — Sugerencias y Feedback ──
+    ['form-sugerencia', 'form-feedback'].forEach(formId => {
+      const form = document.getElementById(formId);
+      if (!form) return;
+      const isSugerencia = formId === 'form-sugerencia';
+      const msgEl = document.getElementById(isSugerencia ? 'sugerencia-msg' : 'feedback-msg');
+      const btn   = document.getElementById(isSugerencia ? 'btn-sugerencia-submit' : 'btn-feedback-submit');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        btn.disabled = true;
+        btn.textContent = 'Enviando...';
+        try {
+          const res = await fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'Accept': 'application/json' }
+          });
+          if (res.ok) {
+            form.reset();
+            msgEl.style.color = '#22c55e';
+            msgEl.textContent = '✓ Enviado. ¡Gracias!';
+            setTimeout(() => { msgEl.textContent = ''; }, 4000);
+          } else {
+            msgEl.style.color = '#ef4444';
+            msgEl.textContent = 'Error al enviar. Inténtalo de nuevo.';
+          }
+        } catch {
+          msgEl.style.color = '#ef4444';
+          msgEl.textContent = 'Error de conexión.';
+        }
+        btn.disabled = false;
+        btn.textContent = isSugerencia ? 'Enviar sugerencia →' : 'Enviar feedback →';
+      });
+    });
 
     window.addEventListener('load', () => {
       initProfilePhoto();
