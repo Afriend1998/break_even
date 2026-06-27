@@ -190,6 +190,7 @@
     document.getElementById('card-my-portfolio').addEventListener('click',     () => goTo('my-portfolio'));
     document.getElementById('btn-back-my-portfolio').addEventListener('click', () => goTo('dashboard'));
     document.getElementById('card-my-assets').addEventListener('click',        () => { assetsFrom = 'my-portfolio'; goTo('assets'); });
+    document.getElementById('card-blog').addEventListener('click',          () => { goTo('blog'); loadBlog(); });
     document.getElementById('btn-back-blog').addEventListener('click',      () => goTo('portfolio'));
     document.getElementById('card-libros').addEventListener('click',        () => goTo('libros'));
     document.getElementById('btn-back-impuestos').addEventListener('click',     () => goTo('dashboard'));
