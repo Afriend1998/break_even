@@ -2164,14 +2164,11 @@
       loadBlog();
     }
 
-    // ── FORMSPREE — Sugerencias y Feedback ──
-    ['form-sugerencia', 'form-feedback'].forEach(formId => {
-      const form = document.getElementById(formId);
-      if (!form) return;
-      const isSugerencia = formId === 'form-sugerencia';
-      const msgEl = document.getElementById(isSugerencia ? 'sugerencia-msg' : 'feedback-msg');
-      const btn   = document.getElementById(isSugerencia ? 'btn-sugerencia-submit' : 'btn-feedback-submit');
-
+    // ── FORMSPREE — Feedback ──
+    const form = document.getElementById('form-feedback');
+    if (form) {
+      const msgEl = document.getElementById('feedback-msg');
+      const btn   = document.getElementById('btn-feedback-submit');
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         btn.disabled = true;
@@ -2196,9 +2193,9 @@
           msgEl.textContent = 'Error de conexión.';
         }
         btn.disabled = false;
-        btn.textContent = isSugerencia ? 'Enviar sugerencia →' : 'Enviar feedback →';
+        btn.textContent = 'Enviar feedback →';
       });
-    });
+    }
 
     window.addEventListener('load', () => {
       initProfilePhoto();
