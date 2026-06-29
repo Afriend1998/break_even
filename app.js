@@ -2254,6 +2254,9 @@
       initChart();
       initRentBadges();
       initAssetsScreen();
+
+      const snapBtn = document.getElementById('btn-save-snapshot');
+      if (snapBtn) snapBtn.addEventListener('click', handleSaveSnapshot);
     });
 
     /* ── RENTABILIDAD BADGES ── */
