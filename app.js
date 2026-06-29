@@ -1,4 +1,4 @@
-    /* ── SUPABASE ── */
+/* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -176,30 +176,25 @@
     document.getElementById('card-mauro-brokers').addEventListener('click',     () => goTo('brokers'));
     document.getElementById('card-mauro-fire').addEventListener('click',        () => goTo('fire'));
     document.getElementById('card-mauro-impuestos').addEventListener('click',   () => goTo('impuestos'));
-    document.getElementById('card-brokers').addEventListener('click',           () => goTo('brokers'));
-    document.getElementById('card-fire').addEventListener('click',              () => goTo('fire'));
-    document.getElementById('card-impuestos').addEventListener('click',         () => goTo('impuestos'));
+
     document.getElementById('btn-back').addEventListener('click', () => {
       goTo('dashboard');
       document.querySelectorAll('.port-tab').forEach(t => t.classList.remove('active'));
       const first = document.querySelector('.port-tab[data-screen="none"]');
       if (first) first.classList.add('active');
     });
-    document.getElementById('btn-back-brokers').addEventListener('click',       () => goTo('dashboard'));
-    let assetsFrom = 'portfolio';
-
-    document.getElementById('card-about').addEventListener('click',             () => goTo('about'));
-    document.getElementById('btn-back-about').addEventListener('click',         () => goTo('portfolio'));
-    document.getElementById('card-assets').addEventListener('click',            () => { assetsFrom = 'portfolio'; goTo('assets'); });
-    document.getElementById('btn-back-assets').addEventListener('click',        () => goTo(assetsFrom));
+    document.getElementById('btn-back-brokers').addEventListener('click',       () => goTo('portfolio'));
+    document.getElementById('btn-back-fire').addEventListener('click',          () => goTo('portfolio'));
+    document.getElementById('btn-back-impuestos').addEventListener('click',     () => goTo('portfolio'));
     document.getElementById('btn-back-libros').addEventListener('click',        () => goTo('portfolio'));
-    document.getElementById('card-my-portfolio').addEventListener('click',     () => goTo('my-portfolio'));
-    document.getElementById('btn-back-my-portfolio').addEventListener('click', () => goTo('dashboard'));
-    document.getElementById('card-my-assets').addEventListener('click',        () => { assetsFrom = 'my-portfolio'; goTo('assets'); });
-    document.getElementById('card-blog').addEventListener('click',          () => { goTo('blog'); loadBlog(); });
-    document.getElementById('btn-back-blog').addEventListener('click',      () => goTo('portfolio'));
-    document.getElementById('card-libros').addEventListener('click',        () => goTo('libros'));
-    document.getElementById('btn-back-impuestos').addEventListener('click',     () => goTo('dashboard'));
+    document.getElementById('btn-back-about').addEventListener('click',         () => goTo('portfolio'));
+    document.getElementById('btn-back-blog').addEventListener('click',          () => goTo('portfolio'));
+
+    let assetsFrom = 'portfolio';
+    document.getElementById('btn-back-assets').addEventListener('click',        () => goTo(assetsFrom));
+    document.getElementById('card-my-portfolio').addEventListener('click',      () => goTo('my-portfolio'));
+    document.getElementById('btn-back-my-portfolio').addEventListener('click',  () => goTo('dashboard'));
+    document.getElementById('card-my-assets').addEventListener('click',         () => { assetsFrom = 'my-portfolio'; goTo('assets'); });
 
     /* ── FIRE CALCULATOR ── */
     function calcFIRE() {
