@@ -2166,24 +2166,6 @@
     }
 
     // ── PORT TAB BAR ──
-    document.querySelectorAll('.port-tab[data-screen]').forEach(tab => {
-      tab.addEventListener('click', () => {
-        const screen = tab.dataset.screen;
-        document.querySelectorAll('.port-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        if (screen === 'none') return; // Cartera — no navegar
-        if (screen === 'assets') { assetsFrom = 'portfolio'; goTo('assets'); return; }
-        if (screen === 'blog')   { goTo('blog'); loadBlog(); return; }
-        goTo(screen);
-      });
-    });
-
-    // Mostrar tab Activos solo para admin
-    function updatePortTabBar() {
-      const tab = document.getElementById('port-tab-assets');
-      if (tab) tab.classList.toggle('visible', isAdmin);
-    }
-
     // ── FORMSPREE — Feedback ──
     const form = document.getElementById('form-feedback');
     if (form) {
@@ -2219,6 +2201,19 @@
 
     window.addEventListener('load', () => {
       initProfilePhoto();
+
+      // ── PORT TAB BAR — inicializar aquí para garantizar que el DOM está listo ──
+      document.querySelectorAll('.port-tab[data-screen]').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const screen = tab.dataset.screen;
+          document.querySelectorAll('.port-tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          if (screen === 'none') return;
+          if (screen === 'assets') { assetsFrom = 'portfolio'; goTo('assets'); return; }
+          if (screen === 'blog')   { goTo('blog'); loadBlog(); return; }
+          goTo(screen);
+        });
+      });
 
       const publishBtn = document.getElementById('btn-publish-post');
       if (publishBtn) {
