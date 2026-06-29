@@ -2304,6 +2304,28 @@
       }
       if (elN) elN.textContent = openCount;
 
+      // ── Rentabilidad anualizada ──
+      const allBuys = assets.filter(a => a.type !== 'dividendo' && a.created_at);
+      if (allBuys.length > 0 && totalInvested > 0 && openValue > 0) {
+        const oldest = allBuys.reduce((min, a) => a.created_at < min ? a.created_at : min, allBuys[0].created_at);
+        const startDate = new Date(oldest);
+        const now = new Date();
+        const yearsElapsed = (now - startDate) / (1000 * 60 * 60 * 24 * 365.25);
+        const totalReturn = (openValue + totalSells) / totalInvested;
+        const annualized = yearsElapsed > 0.08 ? ((Math.pow(totalReturn, 1 / yearsElapsed) - 1) * 100) : null;
+
+        const elA = document.getElementById('mv-annualized');
+        const elS = document.getElementById('mv-since');
+        const elB = document.getElementById('mv-annualized-bar');
+
+        if (elA && annualized !== null) {
+          elA.textContent = (annualized >= 0 ? '+' : '') + annualized.toFixed(1) + '%  /año';
+          elA.className = 'metric-value ' + (annualized >= 0 ? 'positive' : 'negative');
+          if (elS) elS.textContent = 'desde ' + startDate.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+          if (elB) elB.style.width = Math.min(Math.abs(annualized) * 2, 100) + '%';
+        }
+      }
+
       // ── Posiciones actuales ──
       const panelTrad   = document.getElementById('panel-trad');
       const panelCrypto = document.getElementById('panel-crypto');
