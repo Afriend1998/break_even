@@ -1,4 +1,4 @@
-    /* ── SUPABASE ── */
+/* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -58,6 +58,11 @@
     /* ── CONTROL DE ACCESO — Admin vs Usuario normal ── */
     const ADMIN_EMAIL = 'miguelalonsoarnedo@gmail.com';
     let isAdmin = false;
+
+    function updatePortTabBar() {
+      const tab = document.getElementById('port-tab-assets');
+      if (tab) tab.classList.toggle('visible', isAdmin);
+    }
 
     function setupUI(email) {
       isAdmin = (email === ADMIN_EMAIL);
