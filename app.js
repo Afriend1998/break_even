@@ -71,6 +71,7 @@
       if (assetsCard) assetsCard.style.display = isAdmin ? '' : 'none';
 
       // Todo lo demás (Libros, Blog, Sobre mí) visible para todos — lectura pública
+      updatePortTabBar();
     }
 
     /* ── AUTH FLOW ── */
@@ -178,7 +179,12 @@
     document.getElementById('card-brokers').addEventListener('click',           () => goTo('brokers'));
     document.getElementById('card-fire').addEventListener('click',              () => goTo('fire'));
     document.getElementById('card-impuestos').addEventListener('click',         () => goTo('impuestos'));
-    document.getElementById('btn-back').addEventListener('click',               () => goTo('dashboard'));
+    document.getElementById('btn-back').addEventListener('click', () => {
+      goTo('dashboard');
+      document.querySelectorAll('.port-tab').forEach(t => t.classList.remove('active'));
+      const first = document.querySelector('.port-tab[data-screen="none"]');
+      if (first) first.classList.add('active');
+    });
     document.getElementById('btn-back-brokers').addEventListener('click',       () => goTo('dashboard'));
     let assetsFrom = 'portfolio';
 
@@ -2162,6 +2168,25 @@
       if (!confirm('¿Borrar esta entrada?')) return;
       await sb.from('posts').delete().eq('id', id);
       loadBlog();
+    }
+
+    // ── PORT TAB BAR ──
+    document.querySelectorAll('.port-tab[data-screen]').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const screen = tab.dataset.screen;
+        document.querySelectorAll('.port-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        if (screen === 'none') return; // Cartera — no navegar
+        if (screen === 'assets') { assetsFrom = 'portfolio'; goTo('assets'); return; }
+        if (screen === 'blog')   { goTo('blog'); loadBlog(); return; }
+        goTo(screen);
+      });
+    });
+
+    // Mostrar tab Activos solo para admin
+    function updatePortTabBar() {
+      const tab = document.getElementById('port-tab-assets');
+      if (tab) tab.classList.toggle('visible', isAdmin);
     }
 
     // ── FORMSPREE — Feedback ──

@@ -171,7 +171,25 @@
       border-radius: 20px; color: #475569; flex-shrink: 0;
     }
 
-    /* ── CALC SCREENS ── */
+    /* ── PORT TAB BAR ── */
+    .port-tab-bar {
+      display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none;
+      margin: 0 0 24px; padding: 4px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .port-tab-bar::-webkit-scrollbar { display: none; }
+    .port-tab {
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+      padding: 8px 14px; border: none; border-radius: 7px; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500;
+      letter-spacing: 0.04em; background: transparent; color: var(--muted);
+      transition: background 0.18s, color 0.18s;
+    }
+    .port-tab:hover { background: rgba(61,127,255,0.08); color: var(--text); }
+    .port-tab.active { background: rgba(61,127,255,0.14); color: var(--accent); }
+    .port-tab-admin { display: none; }
+    .port-tab-admin.visible { display: flex; }
     #screen-comunidad,
     #screen-fire,
     #screen-impuestos,
