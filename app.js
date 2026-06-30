@@ -1,4 +1,4 @@
-/* ── SUPABASE ── */
+    /* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -203,7 +203,7 @@
 
     let assetsFrom = 'portfolio';
     on('btn-back-assets',        () => goTo(assetsFrom));
-    on('card-my-portfolio',      () => goTo('my-portfolio'));
+    on('card-my-portfolio',      () => { goTo('my-portfolio'); initMyPortfolio(); });
     on('btn-back-my-portfolio',  () => goTo('dashboard'));
     on('card-my-assets',         () => { assetsFrom = 'my-portfolio'; goTo('assets'); });
 
@@ -2641,6 +2641,212 @@
 
       const legendMiguel = document.getElementById('compare-legend-miguel');
       if (legendMiguel) legendMiguel.style.display = showMiguel ? 'flex' : 'none';
+    }
+
+    /* ══════════════════════════════════════════════
+       MI PORTFOLIO — métricas y gráfica del usuario normal
+    ══════════════════════════════════════════════ */
+    let myCompareView = 'total';
+    let myEvolutionChart = null;
+
+    async function refreshMyPortfolio() {
+      const assets = await loadAssets();
+
+      const filtered = assets.filter(a => {
+        if (myCompareView === 'total') return true;
+        const isFondo = (a.broker || '').toLowerCase().includes('myinvestor');
+        return myCompareView === 'fondos' ? isFondo : !isFondo;
+      });
+
+      const grouped = {};
+      filtered.forEach(a => {
+        const t = (a.ticker || '?').toUpperCase();
+        if (!grouped[t]) grouped[t] = { buys: 0, sells: 0, dates: [] };
+        const v = parseFloat(a.value) || 0;
+        if (a.type === 'venta') grouped[t].sells += v;
+        else if (a.type !== 'dividendo') { grouped[t].buys += v; grouped[t].dates.push(a.created_at); }
+      });
+
+      let openValue = 0, totalInvested = 0, openCount = 0;
+      const allBuyDates = [];
+      Object.values(grouped).forEach(g => {
+        const net = g.buys - g.sells;
+        if (net > 0.5) { openValue += net; openCount++; }
+        totalInvested += g.buys;
+        g.dates.forEach(d => allBuyDates.push(d));
+      });
+
+      const pnl = openValue - totalInvested;
+      const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+      const setClass = (id, cls) => { const el = document.getElementById(id); if (el) el.className = 'metric-value ' + cls; };
+
+      set('my-mv-total', fmtEur(openValue));
+      set('my-mv-invested', fmtEur(totalInvested));
+      set('my-mv-pnl', (pnl >= 0 ? '+' : '') + fmtEur(pnl));
+      setClass('my-mv-pnl', pnl >= 0 ? 'positive' : 'negative');
+      set('my-mv-positions', openCount);
+
+      if (totalInvested > 0 && allBuyDates.length > 0) {
+        const totalReturnPct = ((openValue - totalInvested) / totalInvested) * 100;
+        const oldest = allBuyDates.reduce((min, d) => d < min ? d : min, allBuyDates[0]);
+        const yearsElapsed = (new Date() - new Date(oldest)) / (1000 * 60 * 60 * 24 * 365.25);
+        let txt = (totalReturnPct >= 0 ? '+' : '') + totalReturnPct.toFixed(1) + '% total';
+        let since = '';
+        if (yearsElapsed >= 1/12) {
+          const ann = (Math.pow(openValue / totalInvested, 1 / yearsElapsed) - 1) * 100;
+          txt += ' · ' + (ann >= 0 ? '+' : '') + ann.toFixed(1) + '%/año';
+          since = 'desde ' + new Date(oldest).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+        } else {
+          since = '⚠️ Añade más historial para la rentabilidad anualizada';
+        }
+        set('my-mv-annualized', txt);
+        setClass('my-mv-annualized', totalReturnPct >= 0 ? 'positive' : 'negative');
+        set('my-mv-since', since);
+        const bar = document.getElementById('my-mv-annualized-bar');
+        if (bar) bar.style.width = Math.min(Math.abs(totalReturnPct) * 2, 100) + '%';
+      }
+    }
+
+    async function getMyEvolutionSeries() {
+      const userId = await getUserId();
+      if (!userId) return null;
+      const { data: snapshots } = await sb
+        .from('portfolio_snapshots')
+        .select('total_value, created_at, asset_class')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+      if (!snapshots || snapshots.length === 0) return null;
+      const byDate = {};
+      snapshots.forEach(s => {
+        const day = new Date(s.created_at).toISOString().slice(0, 10);
+        if (!byDate[day]) byDate[day] = { acciones: 0, fondos: 0, date: s.created_at };
+        if (s.asset_class === 'fondos') byDate[day].fondos += s.total_value;
+        else byDate[day].acciones += s.total_value;
+      });
+      const days = Object.keys(byDate).sort();
+      let lastAcc = null, lastFon = null;
+      return days.map(d => {
+        if (byDate[d].acciones > 0) lastAcc = byDate[d].acciones;
+        if (byDate[d].fondos   > 0) lastFon = byDate[d].fondos;
+        return {
+          label: new Date(byDate[d].date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' }),
+          acciones: lastAcc,
+          fondos: lastFon,
+        };
+      });
+    }
+
+    async function renderMyEvolutionChart() {
+      const canvas = document.getElementById('my-evolution-chart');
+      if (!canvas) return;
+
+      const myData = await getMyEvolutionSeries();
+      const showMiguel = document.getElementById('my-compare-miguel')?.checked || false;
+      const showMauro  = document.getElementById('my-compare-mauro')?.checked  || false;
+      const miguelData = showMiguel ? await getMiguelRentSeries() : null;
+
+      const datasets = [];
+      let labels = [];
+
+      if (myData && myData.length > 0) {
+        labels = myData.map(d => d.label);
+        const vals = myCompareView === 'acciones' ? myData.map(d => d.acciones)
+                   : myCompareView === 'fondos'   ? myData.map(d => d.fondos)
+                   : myData.map(d => (d.acciones || 0) + (d.fondos || 0));
+        datasets.push({
+          label: 'Tu cartera', data: vals,
+          borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,0.08)',
+          borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, spanGaps: true,
+        });
+      }
+
+      if (showMiguel && miguelData && miguelData.length > 0) {
+        if (labels.length === 0) labels = miguelData.map(d => d.label);
+        const mvals = myCompareView === 'acciones' ? miguelData.map(d => d.acciones)
+                    : myCompareView === 'fondos'   ? miguelData.map(d => d.fondos)
+                    : miguelData.map(d => (d.acciones || 0) + (d.fondos || 0));
+        datasets.push({
+          label: 'Miguel', data: mvals,
+          borderColor: '#3d7eff', backgroundColor: 'transparent',
+          borderWidth: 1.5, borderDash: [5, 4], fill: false, tension: 0.3, pointRadius: 2, spanGaps: true,
+        });
+      }
+
+      if (showMauro) {
+        if (labels.length === 0) labels = MAURO_RENT_DATA.map(d => d.label);
+        datasets.push({
+          label: 'Mauro', data: MAURO_RENT_DATA.map(d => d.eur),
+          borderColor: '#fac850', backgroundColor: 'transparent',
+          borderWidth: 1.5, borderDash: [5, 4], fill: false, tension: 0.3, pointRadius: 2,
+        });
+      }
+
+      if (myEvolutionChart) { myEvolutionChart.destroy(); myEvolutionChart = null; }
+
+      if (datasets.length === 0) return;
+
+      myEvolutionChart = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: datasets.length > 1, position: 'top', align: 'end',
+              labels: { color: '#3a4d6a', font: { size: 10 }, usePointStyle: true, pointStyleWidth: 7, boxHeight: 6, padding: 12 } },
+            tooltip: {
+              backgroundColor: '#0c1018', borderColor: '#1a2235', borderWidth: 1,
+              titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 12,
+              callbacks: { label: c => '  ' + c.dataset.label + ':  ' + fmtEur(c.raw) }
+            }
+          },
+          scales: {
+            x: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 7 } },
+            y: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 },
+              callback: v => v >= 1000 ? '€' + (v/1000).toFixed(1) + 'k' : '€' + v } }
+          }
+        }
+      });
+
+      const legMiguel = document.getElementById('my-legend-miguel');
+      const legMauro  = document.getElementById('my-legend-mauro');
+      if (legMiguel) legMiguel.style.display = showMiguel ? 'flex' : 'none';
+      if (legMauro)  legMauro.style.display  = showMauro  ? 'flex' : 'none';
+    }
+
+    async function initMyPortfolio() {
+      await refreshMyPortfolio();
+      await renderMyEvolutionChart();
+
+      const viewColors = { total: '#22c55e', acciones: '#3d7eff', fondos: '#ef4444' };
+      const tabBar = document.getElementById('my-view-tabs');
+      if (tabBar && !tabBar.dataset.bound) {
+        tabBar.dataset.bound = '1';
+        tabBar.querySelectorAll('.my-cv-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            tabBar.querySelectorAll('.my-cv-btn').forEach(b => {
+              b.style.borderColor = 'var(--border)';
+              b.style.background  = 'transparent';
+              b.style.color       = 'var(--muted)';
+            });
+            const color = viewColors[btn.dataset.view] || '#22c55e';
+            btn.style.borderColor = color;
+            btn.style.background  = `rgba(${color === '#22c55e' ? '34,197,94' : color === '#3d7eff' ? '61,127,255' : '239,68,68'},0.12)`;
+            btn.style.color       = color;
+            myCompareView = btn.dataset.view;
+            const viewLabels = { total: ['Todo', '#22c55e'], acciones: ['Acciones', '#3d7eff'], fondos: ['Fondos', '#ef4444'] };
+            const labelEl = document.getElementById('my-metrics-view-label');
+            if (labelEl && viewLabels[myCompareView]) {
+              const [text, lcolor] = viewLabels[myCompareView];
+              labelEl.innerHTML = 'Mostrando: <span style="color:' + lcolor + ';font-weight:700">' + text + '</span>';
+            }
+            refreshMyPortfolio();
+            renderMyEvolutionChart();
+          });
+        });
+      }
+
+      on('my-compare-miguel', () => renderMyEvolutionChart());
+      on('my-compare-mauro',  () => renderMyEvolutionChart());
     }
 
     async function refreshPortfolio() {
