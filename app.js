@@ -1,4 +1,4 @@
-/* ── SUPABASE ── */
+    /* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -2391,19 +2391,46 @@
     async function getMiguelRentSeries() {
       const { data: snapshots } = await sb
         .from('portfolio_snapshots')
-        .select('total_value, created_at')
+        .select('total_value, created_at, asset_class')
         .eq('user_id', MIGUEL_USER_ID)
         .order('created_at', { ascending: true });
 
       if (!snapshots || snapshots.length === 0) return null;
 
-      return snapshots.map(s => ({
-        label: new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' }),
-        eur: s.total_value,
+      // ── Agrupar por fecha: acciones y fondos por separado ──
+      const byDate = {};
+      snapshots.forEach(s => {
+        const day = new Date(s.created_at).toISOString().slice(0, 10);
+        if (!byDate[day]) byDate[day] = { acciones: 0, fondos: 0, date: s.created_at };
+        if (s.asset_class === 'fondos') byDate[day].fondos += s.total_value;
+        else byDate[day].acciones += s.total_value; // 'acciones' o 'total' (legacy)
+      });
+      const days = Object.keys(byDate).sort();
+
+      // ── Aportaciones acumuladas: suma de todas las compras hasta cada fecha ──
+      const { data: buyAssets } = await sb
+        .from('assets')
+        .select('value, type, created_at')
+        .eq('user_id', MIGUEL_USER_ID);
+
+      const buys = (buyAssets || [])
+        .filter(a => a.type !== 'venta' && a.type !== 'dividendo')
+        .map(a => ({ date: a.created_at, value: parseFloat(a.value) || 0 }));
+
+      function aportacionesHasta(day) {
+        const limit = day + 'T23:59:59';
+        return buys.filter(b => b.date <= limit).reduce((s, b) => s + b.value, 0);
+      }
+
+      return days.map(d => ({
+        label: new Date(byDate[d].date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' }),
+        acciones: byDate[d].acciones || null,
+        fondos: byDate[d].fondos || null,
+        aportaciones: aportacionesHasta(d),
       }));
     }
 
-    function buildCompareChart(canvasId, miguelData, mauroData, showMauro) {
+    function buildCompareChart(canvasId, miguelData, view, showMauro) {
       const canvas = document.getElementById(canvasId);
       if (!canvas) return null;
 
@@ -2412,11 +2439,33 @@
 
       if (miguelData && miguelData.length > 0) {
         labels = miguelData.map(d => d.label);
+
         datasets.push({
-          label: 'Miguel', data: miguelData.map(d => d.eur),
-          borderColor: '#3d7eff', backgroundColor: 'rgba(61,127,255,0.08)',
-          borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#3d7eff',
+          label: 'Aportaciones', data: miguelData.map(d => d.aportaciones),
+          borderColor: '#64748b', backgroundColor: 'transparent',
+          borderWidth: 1.5, borderDash: [5, 4], fill: false, tension: 0.2,
+          pointRadius: 2, pointBackgroundColor: '#64748b', spanGaps: true,
         });
+
+        if (view === 'total') {
+          datasets.push({
+            label: 'Total', data: miguelData.map(d => (d.acciones || 0) + (d.fondos || 0)),
+            borderColor: '#00ff6a', backgroundColor: 'rgba(0,255,106,0.08)',
+            borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#00ff6a', spanGaps: true,
+          });
+        } else if (view === 'acciones') {
+          datasets.push({
+            label: 'Acciones', data: miguelData.map(d => d.acciones),
+            borderColor: '#3d7eff', backgroundColor: 'rgba(61,127,255,0.08)',
+            borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#3d7eff', spanGaps: true,
+          });
+        } else if (view === 'fondos') {
+          datasets.push({
+            label: 'Fondos', data: miguelData.map(d => d.fondos),
+            borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)',
+            borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#ef4444', spanGaps: true,
+          });
+        }
       }
 
       if (showMauro) {
@@ -2434,7 +2483,10 @@
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: {
-            legend: { display: false },
+            legend: {
+              display: true, position: 'top', align: 'end',
+              labels: { color: '#3a4d6a', font: { size: 10 }, usePointStyle: true, pointStyleWidth: 7, boxHeight: 6, padding: 12 }
+            },
             tooltip: {
               backgroundColor: '#0c1018', borderColor: '#1a2235', borderWidth: 1,
               titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 12,
@@ -2450,16 +2502,19 @@
       });
     }
 
+    let compareView = 'total';
+    let cachedMiguelData = null;
+
     async function initCompareChartMiguel() {
-      const miguelData = await getMiguelRentSeries();
+      cachedMiguelData = await getMiguelRentSeries();
       const showMauro = document.getElementById('compare-mauro-toggle')?.checked || false;
       if (compareChartMiguel) { compareChartMiguel.destroy(); compareChartMiguel = null; }
-      compareChartMiguel = buildCompareChart('compare-chart', miguelData, null, showMauro);
+      compareChartMiguel = buildCompareChart('compare-chart', cachedMiguelData, compareView, showMauro);
 
       const legendMauro = document.getElementById('compare-legend-mauro');
       if (legendMauro) legendMauro.style.display = showMauro ? 'flex' : 'none';
 
-      if (!miguelData) {
+      if (!cachedMiguelData) {
         const wrap = document.getElementById('compare-chart')?.parentElement;
         if (wrap && !document.getElementById('compare-empty-msg')) {
           const msg = document.createElement('div');
@@ -2472,6 +2527,30 @@
         }
       } else {
         document.getElementById('compare-empty-msg')?.remove();
+      }
+
+      // Listener de los tabs Todo/Acciones/Fondos (solo una vez)
+      const tabBar = document.getElementById('compare-view-tabs');
+      if (tabBar && !tabBar.dataset.bound) {
+        tabBar.dataset.bound = '1';
+        tabBar.querySelectorAll('.tab-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            tabBar.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            compareView = btn.dataset.view;
+            const showMauroNow = document.getElementById('compare-mauro-toggle')?.checked || false;
+            if (compareChartMiguel) { compareChartMiguel.destroy(); compareChartMiguel = null; }
+            compareChartMiguel = buildCompareChart('compare-chart', cachedMiguelData, compareView, showMauroNow);
+            refreshPortfolio(); // actualiza las métricas (En cartera, Invertido, P&L...) según la vista
+
+            const viewLabels = { total: ['Todo', '#00ff6a'], acciones: ['Acciones', '#3d7eff'], fondos: ['Fondos', '#ef4444'] };
+            const labelEl = document.getElementById('metrics-view-label');
+            if (labelEl && viewLabels[compareView]) {
+              const [text, color] = viewLabels[compareView];
+              labelEl.innerHTML = 'Mostrando: <span style="color:' + color + ';font-weight:700">' + text + '</span>';
+            }
+          });
+        });
       }
     }
 
@@ -2525,7 +2604,14 @@
     }
 
     async function refreshPortfolio() {
-      const assets = isAdmin ? await loadAssets() : await loadMiguelAssets();
+      const allAssets = isAdmin ? await loadAssets() : await loadMiguelAssets();
+
+      // ── Filtrar por la vista activa (Todo/Acciones/Fondos) ──
+      const assets = allAssets.filter(a => {
+        if (compareView === 'total') return true;
+        const isFondo = (a.broker || '').toLowerCase().includes('myinvestor');
+        return compareView === 'fondos' ? isFondo : !isFondo;
+      });
 
       // ── Calcular métricas ──
       const grouped = {};
