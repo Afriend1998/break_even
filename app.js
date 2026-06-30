@@ -1,4 +1,4 @@
-/* ── SUPABASE ── */
+    /* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -180,8 +180,8 @@
       if (el) el.addEventListener('click', fn);
     }
 
-    on('card-portfolio',       () => { goTo('portfolio'); initAllocChart(); refreshPortfolio(); });
-    on('card-portfolio-mauro', () => goTo('portfolio-mauro'));
+    on('card-portfolio', () => { goTo('portfolio'); initAllocChart(); refreshPortfolio(); initCompareChartMiguel(); });
+    on('card-portfolio-mauro', () => { goTo('portfolio-mauro'); initCompareChartMauro(); });
     on('btn-back-mauro',       () => goTo('dashboard'));
     on('card-mauro-brokers',   () => goTo('brokers'));
     on('card-mauro-fire',      () => goTo('fire'));
@@ -786,13 +786,31 @@
 
     async function handleSaveSnapshot() {
       const assets = await loadAssets();
-      const total = assets.reduce((s, a) => s + (parseFloat(a.value) || 0), 0);
+
+      // Agrupar por ticker y calcular solo el valor neto de posiciones ABIERTAS
+      // (compras - ventas), igual que en refreshPortfolio. Nunca sumar dividendos
+      // ni transacciones cerradas — si no, cada ciclo de compra/venta se acumula
+      // y el total queda inflado.
+      const grouped = {};
+      assets.forEach(a => {
+        const t = (a.ticker || '?').toUpperCase();
+        if (!grouped[t]) grouped[t] = { buys: 0, sells: 0 };
+        const v = parseFloat(a.value) || 0;
+        if (a.type === 'venta') grouped[t].sells += v;
+        else if (a.type !== 'dividendo') grouped[t].buys += v;
+      });
+
+      const total = Object.values(grouped).reduce((sum, g) => {
+        const net = g.buys - g.sells;
+        return sum + (net > 0.5 ? net : 0); // solo posiciones realmente abiertas
+      }, 0);
+
       await saveSnapshot(total);
       renderEvolutionChart();
       const btn = document.getElementById('btn-save-snapshot');
       const original = btn.textContent;
-      btn.textContent = '✓ Guardado';
-      setTimeout(() => { btn.textContent = original; }, 1500);
+      btn.textContent = '✓ Guardado (' + fmtEur(total) + ')';
+      setTimeout(() => { btn.textContent = original; }, 2000);
     }
 
     // Parsea números en formato europeo (1.234,56) o americano (1,234.56) o con símbolo de moneda
@@ -2257,6 +2275,12 @@
 
       const snapBtn = document.getElementById('btn-save-snapshot');
       if (snapBtn) snapBtn.addEventListener('click', handleSaveSnapshot);
+
+      const cmpMauroToggle = document.getElementById('compare-mauro-toggle');
+      if (cmpMauroToggle) cmpMauroToggle.addEventListener('change', initCompareChartMiguel);
+
+      const cmpMiguelToggle = document.getElementById('compare-miguel-toggle');
+      if (cmpMiguelToggle) cmpMiguelToggle.addEventListener('change', initCompareChartMauro);
     });
 
     /* ── RENTABILIDAD BADGES ── */
@@ -2294,6 +2318,158 @@
           input.addEventListener('click', e => e.stopPropagation());
         });
       });
+    }
+
+    /* ══════════════════════════════════════════════
+       GRÁFICA COMPARATIVA — Rentabilidad Miguel vs Mauro
+    ══════════════════════════════════════════════ */
+    let compareChartMiguel = null;
+    let compareChartMauro  = null;
+
+    // Datos de ejemplo de Mauro (% rentabilidad acumulada por mes desde ene 2024)
+    const MAURO_RENT_DATA = [
+      { label: 'Ene 24', pct: 0 },   { label: 'Mar 24', pct: 1.8 }, { label: 'May 24', pct: 0.9 },
+      { label: 'Jul 24', pct: 3.2 }, { label: 'Sep 24', pct: 2.1 }, { label: 'Nov 24', pct: 4.5 },
+      { label: 'Ene 25', pct: 5.8 }, { label: 'Mar 25', pct: 4.9 }, { label: 'May 25', pct: 7.2 },
+      { label: 'Jul 25', pct: 8.6 }, { label: 'Sep 25', pct: 9.1 }, { label: 'Nov 25', pct: 10.8 },
+      { label: 'Jun 26', pct: 12.4 },
+    ];
+
+    async function getMiguelRentSeries() {
+      const { data: snapshots } = await sb
+        .from('portfolio_snapshots')
+        .select('total_value, created_at')
+        .eq('user_id', MIGUEL_USER_ID)
+        .order('created_at', { ascending: true });
+
+      if (!snapshots || snapshots.length === 0) return null;
+
+      const base = snapshots[0].total_value;
+      if (!base || base === 0) return null;
+
+      return snapshots.map(s => ({
+        label: new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
+        pct: ((s.total_value - base) / base) * 100,
+      }));
+    }
+
+    function buildCompareChart(canvasId, miguelData, mauroData, showMauro, primaryColor) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return null;
+
+      const datasets = [];
+      let labels = [];
+
+      if (miguelData && miguelData.length > 0) {
+        labels = miguelData.map(d => d.label);
+        datasets.push({
+          label: 'Miguel', data: miguelData.map(d => d.pct),
+          borderColor: '#3d7eff', backgroundColor: 'rgba(61,127,255,0.08)',
+          borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#3d7eff',
+        });
+      }
+
+      if (showMauro) {
+        if (labels.length === 0) labels = MAURO_RENT_DATA.map(d => d.label);
+        datasets.push({
+          label: 'Mauro', data: MAURO_RENT_DATA.map(d => d.pct),
+          borderColor: '#fac850', backgroundColor: 'rgba(250,200,80,0.08)',
+          borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#fac850',
+        });
+      }
+
+      return new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0c1018', borderColor: '#1a2235', borderWidth: 1,
+              titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 12,
+              callbacks: { label: c => '  ' + c.dataset.label + ':  ' + (c.raw >= 0 ? '+' : '') + c.raw.toFixed(1) + '%' }
+            }
+          },
+          scales: {
+            x: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 } } },
+            y: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 }, callback: v => v + '%' } }
+          }
+        }
+      });
+    }
+
+    async function initCompareChartMiguel() {
+      const miguelData = await getMiguelRentSeries();
+      const showMauro = document.getElementById('compare-mauro-toggle')?.checked || false;
+      if (compareChartMiguel) { compareChartMiguel.destroy(); compareChartMiguel = null; }
+      compareChartMiguel = buildCompareChart('compare-chart', miguelData, null, showMauro);
+
+      const legendMauro = document.getElementById('compare-legend-mauro');
+      if (legendMauro) legendMauro.style.display = showMauro ? 'flex' : 'none';
+
+      if (!miguelData) {
+        const wrap = document.getElementById('compare-chart')?.parentElement;
+        if (wrap && !document.getElementById('compare-empty-msg')) {
+          const msg = document.createElement('div');
+          msg.id = 'compare-empty-msg';
+          msg.className = 'assets-empty';
+          msg.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px';
+          msg.textContent = 'Guarda snapshots en Mis Activos para ver tu evolución de rentabilidad aquí.';
+          wrap.style.position = 'relative';
+          wrap.appendChild(msg);
+        }
+      } else {
+        document.getElementById('compare-empty-msg')?.remove();
+      }
+    }
+
+    function initCompareChartMauro() {
+      const showMiguel = document.getElementById('compare-miguel-toggle')?.checked || false;
+      if (compareChartMauro) { compareChartMauro.destroy(); compareChartMauro = null; }
+
+      if (showMiguel) {
+        getMiguelRentSeries().then(miguelData => {
+          if (compareChartMauro) { compareChartMauro.destroy(); compareChartMauro = null; }
+          const canvas = document.getElementById('compare-chart-mauro');
+          const datasets = [{
+            label: 'Mauro', data: MAURO_RENT_DATA.map(d => d.pct),
+            borderColor: '#fac850', backgroundColor: 'rgba(250,200,80,0.08)',
+            borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#fac850',
+          }];
+          if (miguelData && miguelData.length > 0) {
+            datasets.push({
+              label: 'Miguel', data: miguelData.map(d => d.pct),
+              borderColor: '#3d7eff', backgroundColor: 'rgba(61,127,255,0.08)',
+              borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#3d7eff',
+            });
+          }
+          compareChartMauro = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: { labels: MAURO_RENT_DATA.map(d => d.label), datasets },
+            options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: '#0c1018', borderColor: '#1a2235', borderWidth: 1,
+                  titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 12,
+                  callbacks: { label: c => '  ' + c.dataset.label + ':  ' + (c.raw >= 0 ? '+' : '') + c.raw.toFixed(1) + '%' }
+                }
+              },
+              scales: {
+                x: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 } } },
+                y: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 }, callback: v => v + '%' } }
+              }
+            }
+          });
+        });
+      } else {
+        compareChartMauro = buildCompareChart('compare-chart-mauro', null, false, true);
+      }
+
+      const legendMiguel = document.getElementById('compare-legend-miguel');
+      if (legendMiguel) legendMiguel.style.display = showMiguel ? 'flex' : 'none';
     }
 
     async function refreshPortfolio() {

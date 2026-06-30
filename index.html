@@ -196,6 +196,28 @@
         </div>
       </div>
 
+      <!-- ─── COMPARATIVA RENTABILIDAD ─── -->
+      <div class="section-card" style="border-color:rgba(250,200,80,0.2);margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px">
+          <div class="section-title" style="margin-bottom:0;color:#fac850">Evolución de rentabilidad</div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;color:var(--muted);user-select:none">
+            <input type="checkbox" id="compare-miguel-toggle" style="accent-color:#3d7eff;width:14px;height:14px;cursor:pointer">
+            Comparar con Miguel
+          </label>
+        </div>
+        <div class="ci-chart-wrap" style="height:240px">
+          <canvas id="compare-chart-mauro"></canvas>
+        </div>
+        <div style="display:flex;gap:18px;margin-top:14px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)">
+            <span style="width:10px;height:10px;border-radius:50%;background:#fac850;display:inline-block"></span>Mauro
+          </div>
+          <div id="compare-legend-miguel" style="display:none;align-items:center;gap:6px;font-size:11px;color:var(--muted)">
+            <span style="width:10px;height:10px;border-radius:50%;background:#3d7eff;display:inline-block"></span>Miguel
+          </div>
+        </div>
+      </div>
+
       <!-- Fondos de inversión -->
       <div class="section-card" style="border-color:rgba(250,200,80,0.2);margin-bottom:16px">
         <div class="section-title" style="color:#fac850">📊 Fondos de inversión · MyInvestor</div>
@@ -359,6 +381,28 @@
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5v7M4.5 6l2.5 2.5L9.5 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 10v1.5A1.5 1.5 0 003.5 13h7a1.5 1.5 0 001.5-1.5V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
           Activos
         </button>
+      </div>
+
+      <!-- ─── COMPARATIVA RENTABILIDAD ─── -->
+      <div class="section-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px">
+          <div class="section-title" style="margin-bottom:0">Evolución de rentabilidad</div>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px;color:var(--muted);user-select:none">
+            <input type="checkbox" id="compare-mauro-toggle" style="accent-color:#fac850;width:14px;height:14px;cursor:pointer">
+            Comparar con Mauro
+          </label>
+        </div>
+        <div class="ci-chart-wrap" style="height:240px">
+          <canvas id="compare-chart"></canvas>
+        </div>
+        <div style="display:flex;gap:18px;margin-top:14px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)">
+            <span style="width:10px;height:10px;border-radius:50%;background:#3d7eff;display:inline-block"></span>Miguel
+          </div>
+          <div id="compare-legend-mauro" style="display:none;align-items:center;gap:6px;font-size:11px;color:var(--muted)">
+            <span style="width:10px;height:10px;border-radius:50%;background:#fac850;display:inline-block"></span>Mauro
+          </div>
+        </div>
       </div>
 
       <!-- ─── DISTRIBUCIÓN ─── -->
