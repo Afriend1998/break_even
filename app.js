@@ -1,4 +1,4 @@
-/* ── SUPABASE ── */
+    /* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -2335,13 +2335,13 @@
     let compareChartMiguel = null;
     let compareChartMauro  = null;
 
-    // Datos de ejemplo de Mauro (% rentabilidad acumulada por mes desde ene 2024)
+    // Datos de ejemplo de Mauro (valor en € acumulado por mes desde ene 2024)
     const MAURO_RENT_DATA = [
-      { label: 'Ene 24', pct: 0 },   { label: 'Mar 24', pct: 1.8 }, { label: 'May 24', pct: 0.9 },
-      { label: 'Jul 24', pct: 3.2 }, { label: 'Sep 24', pct: 2.1 }, { label: 'Nov 24', pct: 4.5 },
-      { label: 'Ene 25', pct: 5.8 }, { label: 'Mar 25', pct: 4.9 }, { label: 'May 25', pct: 7.2 },
-      { label: 'Jul 25', pct: 8.6 }, { label: 'Sep 25', pct: 9.1 }, { label: 'Nov 25', pct: 10.8 },
-      { label: 'Jun 26', pct: 12.4 },
+      { label: 'Ene 24', eur: 2200 }, { label: 'Mar 24', eur: 2440 }, { label: 'May 24', eur: 2380 },
+      { label: 'Jul 24', eur: 2680 }, { label: 'Sep 24', eur: 2580 }, { label: 'Nov 24', eur: 2920 },
+      { label: 'Ene 25', eur: 3100 }, { label: 'Mar 25', eur: 3020 }, { label: 'May 25', eur: 3280 },
+      { label: 'Jul 25', eur: 3460 }, { label: 'Sep 25', eur: 3540 }, { label: 'Nov 25', eur: 3760 },
+      { label: 'Jun 26', eur: 3944 },
     ];
 
     async function getMiguelRentSeries() {
@@ -2353,16 +2353,13 @@
 
       if (!snapshots || snapshots.length === 0) return null;
 
-      const base = snapshots[0].total_value;
-      if (!base || base === 0) return null;
-
       return snapshots.map(s => ({
         label: new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' }),
-        pct: ((s.total_value - base) / base) * 100,
+        eur: s.total_value,
       }));
     }
 
-    function buildCompareChart(canvasId, miguelData, mauroData, showMauro, primaryColor) {
+    function buildCompareChart(canvasId, miguelData, mauroData, showMauro) {
       const canvas = document.getElementById(canvasId);
       if (!canvas) return null;
 
@@ -2372,7 +2369,7 @@
       if (miguelData && miguelData.length > 0) {
         labels = miguelData.map(d => d.label);
         datasets.push({
-          label: 'Miguel', data: miguelData.map(d => d.pct),
+          label: 'Miguel', data: miguelData.map(d => d.eur),
           borderColor: '#3d7eff', backgroundColor: 'rgba(61,127,255,0.08)',
           borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#3d7eff',
         });
@@ -2381,7 +2378,7 @@
       if (showMauro) {
         if (labels.length === 0) labels = MAURO_RENT_DATA.map(d => d.label);
         datasets.push({
-          label: 'Mauro', data: MAURO_RENT_DATA.map(d => d.pct),
+          label: 'Mauro', data: MAURO_RENT_DATA.map(d => d.eur),
           borderColor: '#fac850', backgroundColor: 'rgba(250,200,80,0.08)',
           borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#fac850',
         });
@@ -2397,12 +2394,13 @@
             tooltip: {
               backgroundColor: '#0c1018', borderColor: '#1a2235', borderWidth: 1,
               titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 12,
-              callbacks: { label: c => '  ' + c.dataset.label + ':  ' + (c.raw >= 0 ? '+' : '') + c.raw.toFixed(1) + '%' }
+              callbacks: { label: c => '  ' + c.dataset.label + ':  ' + fmtEur(c.raw) }
             }
           },
           scales: {
-            x: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 } } },
-            y: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 }, callback: v => v + '%' } }
+            x: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 8 } },
+            y: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 },
+              callback: v => v >= 1000 ? '€' + (v/1000).toFixed(1) + 'k' : '€' + v } }
           }
         }
       });
@@ -2424,7 +2422,7 @@
           msg.id = 'compare-empty-msg';
           msg.className = 'assets-empty';
           msg.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px';
-          msg.textContent = 'Guarda snapshots en Mis Activos para ver tu evolución de rentabilidad aquí.';
+          msg.textContent = 'Guarda snapshots en Mis Activos para ver tu evolución aquí.';
           wrap.style.position = 'relative';
           wrap.appendChild(msg);
         }
@@ -2442,13 +2440,13 @@
           if (compareChartMauro) { compareChartMauro.destroy(); compareChartMauro = null; }
           const canvas = document.getElementById('compare-chart-mauro');
           const datasets = [{
-            label: 'Mauro', data: MAURO_RENT_DATA.map(d => d.pct),
+            label: 'Mauro', data: MAURO_RENT_DATA.map(d => d.eur),
             borderColor: '#fac850', backgroundColor: 'rgba(250,200,80,0.08)',
             borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#fac850',
           }];
           if (miguelData && miguelData.length > 0) {
             datasets.push({
-              label: 'Miguel', data: miguelData.map(d => d.pct),
+              label: 'Miguel', data: miguelData.map(d => d.eur),
               borderColor: '#3d7eff', backgroundColor: 'rgba(61,127,255,0.08)',
               borderWidth: 2, fill: true, tension: 0.3, pointRadius: 3, pointBackgroundColor: '#3d7eff',
             });
@@ -2463,12 +2461,13 @@
                 tooltip: {
                   backgroundColor: '#0c1018', borderColor: '#1a2235', borderWidth: 1,
                   titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 12,
-                  callbacks: { label: c => '  ' + c.dataset.label + ':  ' + (c.raw >= 0 ? '+' : '') + c.raw.toFixed(1) + '%' }
+                  callbacks: { label: c => '  ' + c.dataset.label + ':  ' + fmtEur(c.raw) }
                 }
               },
               scales: {
-                x: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 } } },
-                y: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 }, callback: v => v + '%' } }
+                x: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 8 } },
+                y: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 },
+                  callback: v => v >= 1000 ? '€' + (v/1000).toFixed(1) + 'k' : '€' + v } }
               }
             }
           });
