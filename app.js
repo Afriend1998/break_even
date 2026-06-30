@@ -1,4 +1,4 @@
-    /* ── SUPABASE ── */
+/* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -400,10 +400,15 @@
       return data || [];
     }
 
-    async function saveSnapshot(total) {
+    async function saveSnapshot(total, assetClass, source) {
       const userId = await getUserId();
       if (!userId) return;
-      await sb.from('portfolio_snapshots').insert({ user_id: userId, total_value: total });
+      await sb.from('portfolio_snapshots').insert({
+        user_id: userId,
+        total_value: total,
+        asset_class: assetClass || 'total',
+        source: source || 'manual',
+      });
     }
 
     function populateBrokerSuggestions() {
@@ -726,9 +731,13 @@
       const canvas = document.getElementById('evolution-chart');
       if (!canvas) return;
 
+      const userId = await getUserId();
+      if (!userId) return;
+
       const { data: snapshots } = await sb
         .from('portfolio_snapshots')
-        .select('total_value, created_at')
+        .select('total_value, created_at, asset_class, source')
+        .eq('user_id', userId)
         .order('created_at', { ascending: true });
 
       const wrap = document.getElementById('evolution-wrap');
@@ -742,50 +751,73 @@
       wrap.style.display = 'block';
       empty.style.display = 'none';
 
-      const labels = snapshots.map(s => new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' }));
-      const values = snapshots.map(s => s.total_value);
+      // ── Construir línea de TOTAL por fecha (sumando acciones+fondos del mismo día) ──
+      const byDate = {};
+      snapshots.forEach(s => {
+        const day = new Date(s.created_at).toISOString().slice(0, 10);
+        if (!byDate[day]) byDate[day] = { total: 0, acciones: 0, fondos: 0, hasImport: false, date: s.created_at };
+        const cls = s.asset_class || 'total';
+        byDate[day].total += s.total_value;
+        if (cls === 'acciones') byDate[day].acciones += s.total_value;
+        else if (cls === 'fondos') byDate[day].fondos += s.total_value;
+        if (s.source === 'import') byDate[day].hasImport = true;
+      });
 
-      // Colorear los puntos: verde si sube respecto al anterior, rojo si baja
-      const pointColors = values.map((v, i) => i === 0 ? '#00ff6a' : (v >= values[i-1] ? '#22c55e' : '#ef4444'));
+      const days = Object.keys(byDate).sort();
+      const labels   = days.map(d => new Date(byDate[d].date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' }));
+      const accVals  = days.map(d => byDate[d].acciones || null);
+      const fonVals  = days.map(d => byDate[d].fondos   || null);
+      const hasFondos = fonVals.some(v => v !== null);
 
-      if (evolutionChart) {
-        evolutionChart.data.labels = labels;
-        evolutionChart.data.datasets[0].data = values;
-        evolutionChart.data.datasets[0].pointBackgroundColor = pointColors;
-        evolutionChart.update('none');
-        return;
+      // Puntos morados donde hubo una importación de PDF/CSV (nueva aportación detectada)
+      const importPointsAcc = days.map(d => byDate[d].hasImport ? '#a78bfa' : '#3d7eff');
+
+      const datasets = [{
+        label: 'Acciones', data: accVals,
+        borderColor: '#3d7eff', backgroundColor: 'rgba(61,127,255,0.08)',
+        borderWidth: 2, fill: true, tension: 0.25, spanGaps: true,
+        pointRadius: 4, pointHoverRadius: 6,
+        pointBackgroundColor: importPointsAcc,
+        pointBorderColor: '#06080e', pointBorderWidth: 1.5,
+      }];
+
+      if (hasFondos) {
+        datasets.push({
+          label: 'Fondos', data: fonVals,
+          borderColor: '#fac850', backgroundColor: 'rgba(250,200,80,0.08)',
+          borderWidth: 2, fill: true, tension: 0.25, spanGaps: true,
+          pointRadius: 4, pointHoverRadius: 6, pointBackgroundColor: '#fac850',
+          pointBorderColor: '#06080e', pointBorderWidth: 1.5,
+        });
       }
+
+      if (evolutionChart) { evolutionChart.destroy(); evolutionChart = null; }
 
       evolutionChart = new Chart(canvas.getContext('2d'), {
         type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            label: 'Valor total',
-            data: values,
-            borderColor: '#00ff6a',
-            backgroundColor: 'rgba(0,255,106,0.08)',
-            borderWidth: 2, fill: true, tension: 0.25,
-            pointRadius: 4, pointHoverRadius: 6,
-            pointBackgroundColor: pointColors,
-            pointBorderColor: '#06080e', pointBorderWidth: 1.5,
-          }]
-        },
+        data: { labels, datasets },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: {
-            legend: { display: false },
+            legend: {
+              display: hasFondos, position: 'top', align: 'end',
+              labels: { color: '#3a4d6a', font: { size: 11 }, usePointStyle: true, pointStyleWidth: 8, boxHeight: 6, padding: 14 }
+            },
             tooltip: {
               backgroundColor: '#0c1018', borderColor: '#1a2235', borderWidth: 1,
               titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 12,
-              callbacks: { label: c => '  ' + fmtEur(c.raw) }
+              callbacks: {
+                label: c => '  ' + c.dataset.label + ':  ' + fmtEur(c.raw),
+                afterBody: ctx => {
+                  const idx = ctx[0]?.dataIndex;
+                  const day = days[idx];
+                  return day && byDate[day].hasImport ? '🟣 Nueva aportación / importación' : '';
+                }
+              }
             }
           },
           scales: {
-            x: {
-              grid: { color: '#111827' },
-              ticks: { color: '#3a4d6a', font: { size: 10 }, maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 8 }
-            },
+            x: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 8 } },
             y: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 },
               callback: v => v >= 1000 ? '€' + (v/1000).toFixed(1) + 'k' : '€' + v } }
           }
@@ -793,28 +825,36 @@
       });
     }
 
-    async function handleSaveSnapshot() {
+    async function takeSnapshot(source) {
       const assets = await loadAssets();
 
-      // Agrupar por ticker y calcular solo el valor neto de posiciones ABIERTAS
-      // (compras - ventas), igual que en refreshPortfolio. Nunca sumar dividendos
-      // ni transacciones cerradas — si no, cada ciclo de compra/venta se acumula
-      // y el total queda inflado.
+      // Agrupar por ticker, calculando solo el valor neto de posiciones ABIERTAS,
+      // y clasificando por broker: MyInvestor = fondos, el resto = acciones.
       const grouped = {};
       assets.forEach(a => {
         const t = (a.ticker || '?').toUpperCase();
-        if (!grouped[t]) grouped[t] = { buys: 0, sells: 0 };
+        if (!grouped[t]) grouped[t] = { buys: 0, sells: 0, broker: a.broker || '' };
         const v = parseFloat(a.value) || 0;
         if (a.type === 'venta') grouped[t].sells += v;
         else if (a.type !== 'dividendo') grouped[t].buys += v;
       });
 
-      const total = Object.values(grouped).reduce((sum, g) => {
+      let totalAcciones = 0, totalFondos = 0;
+      Object.values(grouped).forEach(g => {
         const net = g.buys - g.sells;
-        return sum + (net > 0.5 ? net : 0); // solo posiciones realmente abiertas
-      }, 0);
+        if (net <= 0.5) return;
+        const isFondo = (g.broker || '').toLowerCase().includes('myinvestor');
+        if (isFondo) totalFondos += net; else totalAcciones += net;
+      });
 
-      await saveSnapshot(total);
+      if (totalAcciones > 0) await saveSnapshot(totalAcciones, 'acciones', source);
+      if (totalFondos  > 0) await saveSnapshot(totalFondos,  'fondos',   source);
+
+      return totalAcciones + totalFondos;
+    }
+
+    async function handleSaveSnapshot() {
+      const total = await takeSnapshot('manual');
       renderEvolutionChart();
       const btn = document.getElementById('btn-save-snapshot');
       const original = btn.textContent;
@@ -1100,6 +1140,7 @@
         input.value = '';
         renderAssets();
         renderImportsHistory();
+        if (toInsert.length > 0) { takeSnapshot('import'); renderEvolutionChart(); }
         showStatus('Importadas ' + toInsert.length + ' filas de "' + broker + '" correctamente.', true);
       });
 
@@ -1328,6 +1369,7 @@
           document.getElementById('import-review').classList.add('hidden');
           renderAssets();
           renderImportsHistory();
+          if (ibTrades.length > 0) { takeSnapshot('import'); renderEvolutionChart(); }
           showStatus('✓ Importadas ' + ibTrades.length + ' operaciones de Interactive Brokers con precio y cantidad.', true);
         });
 
@@ -1552,6 +1594,7 @@
           document.querySelector('.review-mapping').style.display = '';
           document.getElementById('import-review').classList.add('hidden');
           renderAssets(); renderImportsHistory();
+          if (toInsert.length > 0) { takeSnapshot('import'); renderEvolutionChart(); }
           showStatus('✓ Importadas ' + toInsert.length + ' operaciones de Revolut (' + revData.buys.length + ' compras · ' + revData.sells.length + ' ventas).', true);
         });
 
@@ -1675,6 +1718,7 @@
           document.querySelector('.review-mapping').style.display = '';
           document.getElementById('import-review').classList.add('hidden');
           renderAssets(); renderImportsHistory();
+          if (toInsert.length > 0) { takeSnapshot('import'); renderEvolutionChart(); }
           showStatus('✓ Importada' + (toInsert.length !== 1 ? 's' : '') + ' ' + toInsert.length + ' posición/es de MyInvestor.', true);
         });
 
