@@ -742,7 +742,7 @@
       wrap.style.display = 'block';
       empty.style.display = 'none';
 
-      const labels = snapshots.map(s => new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }));
+      const labels = snapshots.map(s => new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' }));
       const values = snapshots.map(s => s.total_value);
 
       if (evolutionChart) {
@@ -2348,7 +2348,7 @@
       if (!base || base === 0) return null;
 
       return snapshots.map(s => ({
-        label: new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
+        label: new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' }),
         pct: ((s.total_value - base) / base) * 100,
       }));
     }
