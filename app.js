@@ -1,4 +1,4 @@
-    /* ── SUPABASE ── */
+/* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -745,9 +745,13 @@
       const labels = snapshots.map(s => new Date(s.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' }));
       const values = snapshots.map(s => s.total_value);
 
+      // Colorear los puntos: verde si sube respecto al anterior, rojo si baja
+      const pointColors = values.map((v, i) => i === 0 ? '#00ff6a' : (v >= values[i-1] ? '#22c55e' : '#ef4444'));
+
       if (evolutionChart) {
         evolutionChart.data.labels = labels;
         evolutionChart.data.datasets[0].data = values;
+        evolutionChart.data.datasets[0].pointBackgroundColor = pointColors;
         evolutionChart.update('none');
         return;
       }
@@ -761,8 +765,10 @@
             data: values,
             borderColor: '#00ff6a',
             backgroundColor: 'rgba(0,255,106,0.08)',
-            borderWidth: 2, fill: true, tension: 0.3,
-            pointRadius: 3, pointBackgroundColor: '#00ff6a',
+            borderWidth: 2, fill: true, tension: 0.25,
+            pointRadius: 4, pointHoverRadius: 6,
+            pointBackgroundColor: pointColors,
+            pointBorderColor: '#06080e', pointBorderWidth: 1.5,
           }]
         },
         options: {
@@ -776,7 +782,10 @@
             }
           },
           scales: {
-            x: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 } } },
+            x: {
+              grid: { color: '#111827' },
+              ticks: { color: '#3a4d6a', font: { size: 10 }, maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 8 }
+            },
             y: { grid: { color: '#111827' }, ticks: { color: '#3a4d6a', font: { size: 10 },
               callback: v => v >= 1000 ? '€' + (v/1000).toFixed(1) + 'k' : '€' + v } }
           }
