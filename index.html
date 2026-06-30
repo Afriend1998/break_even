@@ -396,15 +396,15 @@
             Comparar con Mauro
           </label>
         </div>
-        <div class="tab-bar" id="compare-view-tabs" style="margin-bottom:16px">
-          <button class="tab-btn active" data-view="total">
-            <span class="tab-dot" style="background:#00ff6a"></span>Todo
+        <div id="compare-view-tabs" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+          <button type="button" class="cv-btn active" data-view="total" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:1px solid #00ff6a;background:rgba(0,255,106,0.12);color:#00ff6a;font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s">
+            <span style="width:7px;height:7px;border-radius:50%;background:#00ff6a;display:inline-block"></span>Todo
           </button>
-          <button class="tab-btn" data-view="acciones">
-            <span class="tab-dot" style="background:#3d7eff"></span>Acciones
+          <button type="button" class="cv-btn" data-view="acciones" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s">
+            <span style="width:7px;height:7px;border-radius:50%;background:#3d7eff;display:inline-block"></span>Acciones
           </button>
-          <button class="tab-btn" data-view="fondos">
-            <span class="tab-dot" style="background:#ef4444"></span>Fondos
+          <button type="button" class="cv-btn" data-view="fondos" style="display:flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:Inter,sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.15s">
+            <span style="width:7px;height:7px;border-radius:50%;background:#ef4444;display:inline-block"></span>Fondos
           </button>
         </div>
         <div class="ci-chart-wrap" style="height:240px">

@@ -2407,6 +2407,21 @@
       });
       const days = Object.keys(byDate).sort();
 
+      // ── Forward-fill: si un día no tiene dato nuevo de acciones o fondos,
+      //    se usa el último valor conocido (igual que hace Revolut/cualquier broker) ──
+      let lastAcciones = null, lastFondos = null;
+      const filled = days.map(d => {
+        const row = byDate[d];
+        if (row.acciones > 0) lastAcciones = row.acciones;
+        if (row.fondos   > 0) lastFondos   = row.fondos;
+        return {
+          day: d,
+          date: row.date,
+          acciones: lastAcciones,
+          fondos:   lastFondos,
+        };
+      });
+
       // ── Aportaciones acumuladas: suma de todas las compras hasta cada fecha ──
       const { data: buyAssets } = await sb
         .from('assets')
@@ -2422,11 +2437,11 @@
         return buys.filter(b => b.date <= limit).reduce((s, b) => s + b.value, 0);
       }
 
-      return days.map(d => ({
-        label: new Date(byDate[d].date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' }),
-        acciones: byDate[d].acciones || null,
-        fondos: byDate[d].fondos || null,
-        aportaciones: aportacionesHasta(d),
+      return filled.map(row => ({
+        label: new Date(row.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' }),
+        acciones: row.acciones,
+        fondos: row.fondos,
+        aportaciones: aportacionesHasta(row.day),
       }));
     }
 
@@ -2529,14 +2544,26 @@
         document.getElementById('compare-empty-msg')?.remove();
       }
 
-      // Listener de los tabs Todo/Acciones/Fondos (solo una vez)
+      // Listener de los botones Todo/Acciones/Fondos (solo una vez)
       const tabBar = document.getElementById('compare-view-tabs');
       if (tabBar && !tabBar.dataset.bound) {
         tabBar.dataset.bound = '1';
-        tabBar.querySelectorAll('.tab-btn').forEach(btn => {
+        const viewColors = { total: '#00ff6a', acciones: '#3d7eff', fondos: '#ef4444' };
+
+        tabBar.querySelectorAll('.cv-btn').forEach(btn => {
           btn.addEventListener('click', () => {
-            tabBar.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            tabBar.querySelectorAll('.cv-btn').forEach(b => {
+              b.classList.remove('active');
+              b.style.borderColor = 'var(--border)';
+              b.style.background  = 'transparent';
+              b.style.color       = 'var(--muted)';
+            });
+            const color = viewColors[btn.dataset.view] || '#3d7eff';
             btn.classList.add('active');
+            btn.style.borderColor = color;
+            btn.style.background  = color === '#00ff6a' ? 'rgba(0,255,106,0.12)' : color === '#3d7eff' ? 'rgba(61,127,255,0.12)' : 'rgba(239,68,68,0.12)';
+            btn.style.color       = color;
+
             compareView = btn.dataset.view;
             const showMauroNow = document.getElementById('compare-mauro-toggle')?.checked || false;
             if (compareChartMiguel) { compareChartMiguel.destroy(); compareChartMiguel = null; }
@@ -2546,8 +2573,8 @@
             const viewLabels = { total: ['Todo', '#00ff6a'], acciones: ['Acciones', '#3d7eff'], fondos: ['Fondos', '#ef4444'] };
             const labelEl = document.getElementById('metrics-view-label');
             if (labelEl && viewLabels[compareView]) {
-              const [text, color] = viewLabels[compareView];
-              labelEl.innerHTML = 'Mostrando: <span style="color:' + color + ';font-weight:700">' + text + '</span>';
+              const [text, lcolor] = viewLabels[compareView];
+              labelEl.innerHTML = 'Mostrando: <span style="color:' + lcolor + ';font-weight:700">' + text + '</span>';
             }
           });
         });
