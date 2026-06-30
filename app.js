@@ -1,4 +1,4 @@
-    /* ── SUPABASE ── */
+/* ── SUPABASE ── */
     const SB_URL = 'https://ysdpmvrvkhvjnkuxznec.supabase.co';
     const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzZHBtdnJ2a2h2am5rdXh6bmVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjUwNjQsImV4cCI6MjA5NzQ0MTA2NH0.OfpmMItFa2DfnZYAuC-Ci2G7go4QxufH1VHzevjfiO8';
     const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -2422,26 +2422,35 @@
         };
       });
 
-      // ── Aportaciones acumuladas: suma de todas las compras hasta cada fecha ──
+      // ── Aportaciones acumuladas, separadas por categoría (acciones vs fondos) ──
       const { data: buyAssets } = await sb
         .from('assets')
-        .select('value, type, created_at')
+        .select('value, type, created_at, broker')
         .eq('user_id', MIGUEL_USER_ID);
 
-      const buys = (buyAssets || [])
+      const allBuys = (buyAssets || [])
         .filter(a => a.type !== 'venta' && a.type !== 'dividendo')
-        .map(a => ({ date: a.created_at, value: parseFloat(a.value) || 0 }));
+        .map(a => ({
+          date: a.created_at,
+          value: parseFloat(a.value) || 0,
+          isFondo: (a.broker || '').toLowerCase().includes('myinvestor'),
+        }));
 
-      function aportacionesHasta(day) {
+      function aportacionesHasta(day, soloFondos, soloAcciones) {
         const limit = day + 'T23:59:59';
-        return buys.filter(b => b.date <= limit).reduce((s, b) => s + b.value, 0);
+        return allBuys
+          .filter(b => b.date <= limit)
+          .filter(b => soloFondos ? b.isFondo : soloAcciones ? !b.isFondo : true)
+          .reduce((s, b) => s + b.value, 0);
       }
 
       return filled.map(row => ({
         label: new Date(row.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: '2-digit' }),
         acciones: row.acciones,
         fondos: row.fondos,
-        aportaciones: aportacionesHasta(row.day),
+        aportacionesTotal:    aportacionesHasta(row.day, false, false),
+        aportacionesAcciones: aportacionesHasta(row.day, false, true),
+        aportacionesFondos:   aportacionesHasta(row.day, true,  false),
       }));
     }
 
@@ -2455,8 +2464,12 @@
       if (miguelData && miguelData.length > 0) {
         labels = miguelData.map(d => d.label);
 
+        const aportField = view === 'fondos' ? 'aportacionesFondos'
+                          : view === 'acciones' ? 'aportacionesAcciones'
+                          : 'aportacionesTotal';
+
         datasets.push({
-          label: 'Aportaciones', data: miguelData.map(d => d.aportaciones),
+          label: 'Aportaciones', data: miguelData.map(d => d[aportField]),
           borderColor: '#64748b', backgroundColor: 'transparent',
           borderWidth: 1.5, borderDash: [5, 4], fill: false, tension: 0.2,
           pointRadius: 2, pointBackgroundColor: '#64748b', spanGaps: true,
