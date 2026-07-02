@@ -20,6 +20,7 @@
       'portfolio-mauro': document.getElementById('screen-portfolio-mauro'),
       'my-portfolio':    document.getElementById('screen-my-portfolio'),
       blog:              document.getElementById('screen-blog'),
+      dividendos:        document.getElementById('screen-dividendos'),
     };
     function goTo(target) {
       Object.keys(screens).forEach(key => {
@@ -194,6 +195,64 @@
       if (first) first.classList.add('active');
     });
 
+    on('btn-back-dividendos', () => goTo('portfolio'));
+
+    /* ── Drag-to-scroll tab bar ── */
+    (() => {
+      const bar = document.getElementById('port-tab-bar');
+      if (!bar) return;
+      let isDown = false, startX, scrollLeft;
+      bar.addEventListener('mousedown', e => {
+        isDown = true; bar.classList.add('dragging');
+        startX = e.pageX - bar.offsetLeft; scrollLeft = bar.scrollLeft;
+      });
+      bar.addEventListener('mouseleave', () => { isDown = false; bar.classList.remove('dragging'); });
+      bar.addEventListener('mouseup',    () => { isDown = false; bar.classList.remove('dragging'); });
+      bar.addEventListener('mousemove',  e => {
+        if (!isDown) return;
+        e.preventDefault();
+        bar.scrollLeft = scrollLeft - (e.pageX - bar.offsetLeft - startX);
+      });
+    })();
+
+    /* ── Formulario añadir dividendo ── */
+    on('btn-add-dividendo', () => {
+      const form = document.getElementById('div-add-form');
+      if (!form) return;
+      form.style.display = form.style.display === 'none' ? 'block' : 'none';
+      if (form.style.display === 'block') {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('div-form-date').value = today;
+        document.getElementById('div-form-msg').textContent = '';
+      }
+    });
+    on('btn-div-cancel', () => { document.getElementById('div-add-form').style.display = 'none'; });
+    on('btn-div-save', async () => {
+      const ticker  = document.getElementById('div-form-ticker').value.trim().toUpperCase();
+      const name    = document.getElementById('div-form-name').value.trim();
+      const amount  = parseFloat(document.getElementById('div-form-amount').value);
+      const date    = document.getElementById('div-form-date').value;
+      const msg     = document.getElementById('div-form-msg');
+      if (!ticker || !amount || !date) { msg.style.color = '#ef4444'; msg.textContent = 'Ticker, importe y fecha son obligatorios.'; return; }
+      msg.style.color = 'var(--muted)'; msg.textContent = 'Guardando…';
+      const userId = await getUserId();
+      if (!userId) { msg.style.color = '#ef4444'; msg.textContent = 'Debes iniciar sesión.'; return; }
+      const { error } = await sb.from('assets').insert({
+        user_id: userId, ticker, name: name || ticker,
+        type: 'dividendo', price_local: amount, currency: 'EUR',
+        quantity: 1, value: amount,
+        created_at: new Date(date).toISOString(),
+      });
+      if (error) { msg.style.color = '#ef4444'; msg.textContent = 'Error: ' + error.message; return; }
+      msg.style.color = '#22c55e'; msg.textContent = '✓ Guardado';
+      document.getElementById('div-form-ticker').value = '';
+      document.getElementById('div-form-name').value = '';
+      document.getElementById('div-form-amount').value = '';
+      setTimeout(() => {
+        document.getElementById('div-add-form').style.display = 'none';
+        initDividendosScreen();
+      }, 800);
+    });
     on('btn-back-brokers',       () => goTo('portfolio'));
     on('btn-back-fire',          () => goTo('portfolio'));
     on('btn-back-impuestos',     () => goTo('portfolio'));
@@ -2291,8 +2350,9 @@
           document.querySelectorAll('.port-tab').forEach(t => t.classList.remove('active'));
           tab.classList.add('active');
           if (screen === 'none') return;
-          if (screen === 'assets') { assetsFrom = 'portfolio'; goTo('assets'); return; }
-          if (screen === 'blog')   { goTo('blog'); loadBlog(); return; }
+          if (screen === 'assets')     { assetsFrom = 'portfolio'; goTo('assets'); return; }
+          if (screen === 'blog')       { goTo('blog'); loadBlog(); return; }
+          if (screen === 'dividendos') { goTo('dividendos'); initDividendosScreen(); return; }
           goTo(screen);
         });
       });
@@ -3137,6 +3197,145 @@
               titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 12,
               callbacks: { label: c => '  ' + c.label + ':  ~€' + Math.round(c.raw).toLocaleString('es-ES') + '  (' + ((c.raw / grandTotal) * 100).toFixed(1) + '%)' }
             }
+          }
+        }
+      });
+    }
+
+    /* ─── DIVIDENDOS ─── */
+    let divBarChart = null;
+
+    async function initDividendosScreen() {
+      const userId = await getUserId();
+      if (!userId) return;
+
+      const targetId = isAdmin ? MIGUEL_USER_ID : userId;
+
+      const { data: rows } = await sb
+        .from('assets')
+        .select('ticker, name, price_local, currency, created_at')
+        .eq('user_id', targetId)
+        .eq('type', 'dividendo')
+        .order('created_at', { ascending: false });
+
+      const divs = rows || [];
+
+      /* ── Totales ── */
+      const now = new Date();
+      const yearStr = now.getFullYear().toString();
+      let totalAll = 0, totalYear = 0;
+      divs.forEach(d => {
+        const v = d.price_local || 0;
+        totalAll += v;
+        if (d.created_at && d.created_at.startsWith(yearStr)) totalYear += v;
+      });
+
+      document.getElementById('div-total').textContent = '+' + fmtEur(totalAll);
+      document.getElementById('div-year').textContent  = '+' + fmtEur(totalYear);
+
+      const yieldVal = totalAll > 0 ? ((5.75 * 12 / 1100) * 100).toFixed(1) + '%' : '—';
+      document.getElementById('div-yield').textContent = yieldVal;
+
+      const nextDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const nextLabel = nextDate.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' });
+      document.getElementById('div-next-date').textContent = nextLabel;
+      document.getElementById('div-next-amount').textContent = '~5.75€ est.';
+
+      buildDivChart(divs);
+      buildDivHistorial(divs);
+    }
+
+    function buildDivHistorial(divs) {
+      const el = document.getElementById('div-historial');
+      if (!divs.length) {
+        el.innerHTML = '<div class="assets-empty">Sin dividendos registrados aún</div>';
+        return;
+      }
+      const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+      let html = '';
+      divs.slice(0, 15).forEach(d => {
+        const isEqt = (d.ticker || '').toUpperCase() === 'EQT' || (d.name || '').toLowerCase().includes('equito');
+        const tickColor = isEqt ? '#EF9F27' : '#3d7eff';
+        const tick = isEqt ? 'EQT' : (d.ticker || '—').substring(0, 4);
+        const date = d.created_at ? new Date(d.created_at) : null;
+        const dateStr = date ? months[date.getMonth()] + ' ' + date.getFullYear().toString().slice(2) : '—';
+        html += `<div style="display:flex;align-items:center;gap:6px;padding:7px 10px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:12px;margin-bottom:5px">
+          <span style="font-weight:700;width:38px;font-size:11px;color:${tickColor}">${tick}</span>
+          <span style="flex:1;color:var(--muted);font-size:11px">${d.name || d.ticker || '—'}</span>
+          <span style="width:60px;text-align:right;font-weight:500;color:#22c55e">+${fmtEur(d.price_local || 0)}</span>
+          <span style="width:64px;text-align:right;color:var(--muted);font-size:11px">${dateStr}</span>
+          <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(34,197,94,0.15);color:#22c55e;white-space:nowrap">Cobrado</span>
+        </div>`;
+      });
+      const now = new Date();
+      const nd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const nl = months[nd.getMonth()] + ' ' + nd.getFullYear().toString().slice(2);
+      html += `<div style="display:flex;align-items:center;gap:6px;padding:7px 10px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:12px;opacity:0.6">
+        <span style="font-weight:700;width:38px;font-size:11px;color:#EF9F27">~</span>
+        <span style="flex:1;color:var(--muted);font-size:11px">Estimado</span>
+        <span style="width:60px;text-align:right;font-weight:500">~5.75€</span>
+        <span style="width:64px;text-align:right;color:var(--muted);font-size:11px">${nl}</span>
+        <span style="font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(56,135,219,0.15);color:#6ab0f5;white-space:nowrap">Próximo</span>
+      </div>`;
+      el.innerHTML = html;
+    }
+
+    function buildDivChart(divs) {
+      const ctx = document.getElementById('div-bar-chart').getContext('2d');
+      if (divBarChart) { divBarChart.destroy(); divBarChart = null; }
+
+      const monthlyAcc = {}, monthlyEqt = {};
+      divs.forEach(d => {
+        if (!d.created_at) return;
+        const key = d.created_at.substring(0, 7);
+        const v = d.price_local || 0;
+        const isEqt = (d.ticker || '').toUpperCase() === 'EQT' || (d.name || '').toLowerCase().includes('equito');
+        if (isEqt) monthlyEqt[key] = (monthlyEqt[key] || 0) + v;
+        else       monthlyAcc[key]  = (monthlyAcc[key]  || 0) + v;
+      });
+
+      const now = new Date();
+      const mn = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      const labels = [], accData = [], eqtData = [], projData = [];
+
+      for (let i = -5; i <= 3; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+        const suffix = d.getFullYear() !== now.getFullYear() ? String(d.getFullYear()).slice(2) : '';
+        labels.push(mn[d.getMonth()].slice(0,1) + suffix);
+        if (i <= 0) {
+          accData.push(monthlyAcc[key] || null);
+          eqtData.push(monthlyEqt[key] || null);
+          projData.push(null);
+        } else {
+          accData.push(null); eqtData.push(null);
+          projData.push(+(5.75 + i * 0.15).toFixed(2));
+        }
+      }
+
+      divBarChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Acciones', data: accData, backgroundColor: '#22c55e', borderRadius: 3 },
+            { label: 'Equito',   data: eqtData, backgroundColor: '#EF9F27', borderRadius: 3 },
+            { label: 'Estimado', data: projData, backgroundColor: 'rgba(55,138,221,0.2)', borderColor: '#378ADD', borderWidth: 1.5, borderDash: [4,3], borderRadius: 3 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0c1018', borderColor: '#1a2235', borderWidth: 1,
+              titleColor: '#dde8ff', bodyColor: '#3a4d6a', padding: 10,
+              callbacks: { label: c => '  ' + c.dataset.label + ': ' + fmtEur(c.raw || 0) }
+            }
+          },
+          scales: {
+            x: { stacked: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#3a4d6a', font: { size: 10 } } },
+            y: { stacked: true, grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#3a4d6a', font: { size: 10 }, callback: v => fmtEur(v) }, beginAtZero: true }
           }
         }
       });
